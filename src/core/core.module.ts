@@ -10,13 +10,21 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
-import helmet from 'helmet';
+import helmetModule from 'helmet';
 import { LoggerModule } from 'nestjs-pino';
 import { HttpExceptionFilter } from '../common/filters/http-exception.filter.js';
 import { LocationInterceptor } from '../common/interceptors/location.interceptor.js';
 import { ResponseEnvelopeInterceptor } from '../common/interceptors/response-envelope.interceptor.js';
 import { createValidationPipe } from '../common/pipes/validation.pipe.js';
 import { type Env, validateEnv } from './env.validation.js';
+
+/**
+ * helmet ships CommonJS typings (`index.d.cts`) next to an ESM build; depending on how TypeScript resolves
+ * them, the default import is either the function or `{ default: function }`. This works for both.
+ */
+const helmet: typeof helmetModule =
+  (helmetModule as unknown as { default?: typeof helmetModule }).default ??
+  helmetModule;
 
 /** Accepted shape of an incoming `X-Request-Id` header. */
 const REQUEST_ID = /^[\w-]{8,64}$/;
