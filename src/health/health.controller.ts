@@ -1,9 +1,9 @@
 import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { SkipThrottle } from '@nestjs/throttler';
 import { HealthIndicatorService } from '@nestjs/terminus';
 import type { Response } from 'express';
 import { Public } from '../auth/public.decorator.js';
+import { SkipThrottle } from '../common/throttle/throttle.decorator.js';
 import { SkipEnvelope } from '../common/decorators/skip-envelope.decorator.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 

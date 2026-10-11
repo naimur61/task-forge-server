@@ -7,12 +7,12 @@ import {
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import compression from 'compression';
 import type { RequestHandler } from 'express';
 import cookieParser from 'cookie-parser';
 import helmetModule from 'helmet';
 import { LoggerModule } from 'nestjs-pino';
+import { ThrottleGuard } from '../common/throttle/throttle.guard.js';
 import { HttpExceptionFilter } from '../common/filters/http-exception.filter.js';
 import { LocationInterceptor } from '../common/interceptors/location.interceptor.js';
 import { ResponseEnvelopeInterceptor } from '../common/interceptors/response-envelope.interceptor.js';
@@ -112,26 +112,13 @@ const REQUEST_ID = /^[\w-]{8,64}$/;
         };
       },
     }),
-
-    ThrottlerModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService<Env, true>) => ({
-        throttlers: [
-          {
-            ttl: config.get('THROTTLE_TTL_MS', { infer: true }),
-            limit: config.get('THROTTLE_LIMIT', { infer: true }),
-          },
-        ],
-        skipIf: () => !config.get('THROTTLE_ENABLED', { infer: true }),
-      }),
-    }),
   ],
   providers: [
     { provide: APP_PIPE, useFactory: createValidationPipe },
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor },
     { provide: APP_INTERCEPTOR, useClass: LocationInterceptor },
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: ThrottleGuard },
   ],
 })
 export class CoreModule implements NestModule {

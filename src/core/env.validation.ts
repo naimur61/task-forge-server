@@ -31,8 +31,6 @@ export const envSchema = z
     /** Global rate limit per IP (default 600 per minute). */
     THROTTLE_TTL_MS: z.coerce.number().int().min(1_000).default(60_000),
     THROTTLE_LIMIT: z.coerce.number().int().min(1).default(600),
-    /** Limit for login / register / password routes (per IP, same window). */
-    THROTTLE_AUTH_LIMIT: z.coerce.number().int().min(1).default(10),
     /** Master switch for rate limiting (tests turn it off; never disable in production). */
     THROTTLE_ENABLED: booleanish.default(true),
 

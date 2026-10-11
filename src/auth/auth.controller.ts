@@ -19,8 +19,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
+import { Throttle } from '../common/throttle/throttle.decorator.js';
 import { SkipEnvelope } from '../common/decorators/skip-envelope.decorator.js';
 import type { Env } from '../core/env.validation.js';
 import { AuthService } from './auth.service.js';
@@ -63,7 +63,7 @@ export class AuthController {
 
   /** Creates an account and sets the refresh cookie. */
   @Public()
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle(10)
   @Post('register')
   @ApiCreatedResponse({ type: AuthSessionResponse })
   @ApiConflictResponse({ description: '`EMAIL_TAKEN`' })
@@ -78,7 +78,7 @@ export class AuthController {
 
   /** Signs in and sets the refresh cookie. */
   @Public()
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle(10)
   @HttpCode(200)
   @Post('login')
   @ApiOkResponse({ type: AuthSessionResponse })
@@ -164,7 +164,7 @@ export class AuthController {
 
   /** Starts a password reset; always 204. */
   @Public()
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle(10)
   @HttpCode(204)
   @Post('forgot-password')
   @ApiNoContentResponse()
@@ -174,7 +174,7 @@ export class AuthController {
 
   /** Completes a password reset. */
   @Public()
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle(10)
   @HttpCode(204)
   @Post('reset-password')
   @ApiNoContentResponse()
