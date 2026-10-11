@@ -9,6 +9,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import compression from 'compression';
+import type { RequestHandler } from 'express';
 import cookieParser from 'cookie-parser';
 import helmetModule from 'helmet';
 import { LoggerModule } from 'nestjs-pino';
@@ -18,13 +19,17 @@ import { ResponseEnvelopeInterceptor } from '../common/interceptors/response-env
 import { createValidationPipe } from '../common/pipes/validation.pipe.js';
 import { type Env, validateEnv } from './env.validation.js';
 
-/**
- * helmet ships CommonJS typings (`index.d.cts`) next to an ESM build; depending on how TypeScript resolves
- * them, the default import is either the function or `{ default: function }`. This works for both.
- */
-const helmet: typeof helmetModule =
-  (helmetModule as unknown as { default?: typeof helmetModule }).default ??
-  helmetModule;
+/** What we use of helmet; typed by hand because its CJS typings resolve differently across build environments. */
+type HelmetFactory = (options?: HelmetOptions) => RequestHandler;
+type HelmetOptions = {
+  crossOriginResourcePolicy?: { policy: 'cross-origin' };
+  contentSecurityPolicy?: false;
+};
+
+/** The default import is either the function or `{ default: function }`, depending on how TypeScript resolves helmet. */
+const helmet: HelmetFactory =
+  (helmetModule as unknown as { default?: HelmetFactory }).default ??
+  (helmetModule as unknown as HelmetFactory);
 
 /** Accepted shape of an incoming `X-Request-Id` header. */
 const REQUEST_ID = /^[\w-]{8,64}$/;
