@@ -1,0 +1,1029 @@
+{
+  "info": {
+    "name": "TaskForge API",
+    "_postman_id": "taskforge-api-2026-10-11",
+    "description": "Project & task management backend (NestJS + Prisma + PostgreSQL). Base URL: http://localhost:4000. All `/api/v1/*` routes except `/health` require `Authorization: Bearer <accessToken>` (obtained from `/auth/login` or `/auth/register`). The refresh token is set as an httpOnly cookie called `tf_refresh` and is sent automatically by browsers.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": {
+      "major": 1,
+      "minor": 0,
+      "patch": 0
+    }
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000", "type": "string" },
+    { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "refreshToken", "value": "", "type": "string" },
+    { "key": "userId", "value": "usr_owner", "type": "string" },
+    { "key": "projectId", "value": "prj_web", "type": "string" },
+    { "key": "taskId", "value": "tsk_0035", "type": "string" },
+    { "key": "labelId", "value": "lbl_0016", "type": "string" },
+    { "key": "commentId", "value": "cmt_0078", "type": "string" },
+    { "key": "notificationId", "value": "ntf_0179", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Liveness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/health", "host": ["{{baseUrl}}"], "path": ["api", "v1", "health"] },
+            "description": "Returns the overall service status. Pings the database (timeout 2s).\n\n- `200` when `status` is `operational` or `degraded`\n- `503` when `status` is `down` (DB unreachable)\n\nPublic; no auth, no throttling."
+          },
+          "response": [
+            {
+              "name": "200 operational",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/health" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"status\": \"operational\",\n  \"latency\": 12,\n  \"checkedAt\": \"2026-10-11T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "200 degraded (DB slow)",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/health" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"status\": \"degraded\",\n  \"latency\": 1432,\n  \"checkedAt\": \"2026-10-11T12:00:00.000Z\"\n}"
+            },
+            {
+              "name": "503 down (DB unreachable)",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/health" },
+              "status": "Service Unavailable",
+              "code": 503,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"status\": \"down\",\n  \"latency\": 2001,\n  \"checkedAt\": \"2026-10-11T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Readiness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/health/ready", "host": ["{{baseUrl}}"], "path": ["api", "v1", "health", "ready"] },
+            "description": "Same probe as `/health` but also returns the individual checks. Suitable for k8s readiness probes.\n\n- `200` when `checks.database === 'up'`\n- `503` when `checks.database === 'down'`"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/health/ready" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"status\": \"operational\",\n  \"latency\": 12,\n  \"checkedAt\": \"2026-10-11T12:00:00.000Z\",\n  \"checks\": { \"database\": \"up\" }\n}"
+            },
+            {
+              "name": "503 down",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/health/ready" },
+              "status": "Service Unavailable",
+              "code": 503,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"status\": \"down\",\n  \"latency\": 2001,\n  \"checkedAt\": \"2026-10-11T12:00:00.000Z\",\n  \"checks\": { \"database\": \"down\" }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New User\",\n  \"email\": \"new@demo.dev\",\n  \"password\": \"Password1\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "register"] },
+            "description": "Creates an account and starts a session. Sets the `tf_refresh` httpOnly cookie. Rate limited: 10/min/IP.\n\n**Body**\n| Field | Type | Rules |\n|---|---|---|\n| `name` | string | 2–80 chars, trimmed |\n| `email` | string | valid email, lowercased |\n| `password` | string | 8–128 chars, must contain a letter and a digit |\n\n**Errors**: `409 EMAIL_TAKEN`."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/auth/register" },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Set-Cookie", "value": "tf_refresh=<opaque>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=..." }],
+              "body": "{\n  \"user\": {\n    \"id\": \"usr_<random>\",\n    \"name\": \"New User\",\n    \"email\": \"new@demo.dev\",\n    \"avatar\": null\n  },\n  \"accessToken\": \"eyJhbGciOi...<JWT>...\"\n}"
+            },
+            {
+              "name": "409 EMAIL_TAKEN",
+              "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/auth/register" },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"statusCode\": 409,\n  \"error\": \"Conflict\",\n  \"message\": \"An account with this email already exists.\",\n  \"code\": \"EMAIL_TAKEN\",\n  \"details\": [{ \"field\": \"email\", \"message\": \"Already in use.\" }]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["const r = pm.response.json(); pm.collectionVariables.set('accessToken', r.accessToken);"] } }
+            ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"owner@demo.dev\",\n  \"password\": \"Demo1234!\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "login"] },
+            "description": "Signs in with email + password, sets the refresh cookie, and returns the user + access token. Demo accounts use `Demo1234!`. Rate limited: 10/min/IP.\n\n**Errors**: `401 INVALID_CREDENTIALS`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/auth/login" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Set-Cookie", "value": "tf_refresh=<opaque>; HttpOnly; Secure; SameSite=Lax; Path=/" }],
+              "body": "{\n  \"user\": {\n    \"id\": \"usr_owner\",\n    \"name\": \"Ava Chen\",\n    \"email\": \"owner@demo.dev\",\n    \"avatar\": null\n  },\n  \"accessToken\": \"eyJhbGciOi...<JWT>...\"\n}"
+            },
+            {
+              "name": "401 INVALID_CREDENTIALS",
+              "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/auth/login" },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"statusCode\": 401,\n  \"error\": \"Unauthorized\",\n  \"message\": \"Incorrect email or password.\",\n  \"code\": \"INVALID_CREDENTIALS\",\n  \"details\": []\n}"
+            }
+          ]
+        },
+        {
+          "name": "Refresh",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Cookie", "value": "tf_refresh={{refreshToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/refresh", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "refresh"] },
+            "description": "Rotates the refresh cookie and returns a new access token. Reads the cookie (set by `/auth/login` or `/auth/register`). Public route.\n\n**Errors**: `401 REFRESH_INVALID` (missing, expired or revoked token)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/auth/refresh" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Set-Cookie", "value": "tf_refresh=<opaque>; HttpOnly; Secure; SameSite=Lax; Path=/" }],
+              "body": "{\n  \"accessToken\": \"eyJhbGciOi...<new-JWT>...\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Cookie", "value": "tf_refresh={{refreshToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/logout", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "logout"] },
+            "description": "Revokes the presented refresh token and clears the cookie. Always returns 204. Public route."
+          },
+          "response": [
+            { "name": "204 No Content", "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/auth/logout" }, "status": "No Content", "code": 204, "body": "" }
+          ]
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "me"] },
+            "description": "Returns the signed-in user."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/auth/me" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"usr_owner\",\n  \"name\": \"Ava Chen\",\n  \"email\": \"owner@demo.dev\",\n  \"avatar\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update profile",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Ava Chen\",\n  \"avatar\": \"https://cdn.example.com/avatars/ava.png\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/profile", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "profile"] },
+            "description": "Updates name, email and/or avatar. All fields optional. Pass `null` for `avatar` to remove it.\n\n**Body**\n| Field | Type | Rules |\n|---|---|---|\n| `name` | string? | 2–80 chars |\n| `email` | string? | valid email |\n| `avatar` | string? \\| null | URL, ≤2048 chars, or null |"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "PUT", "url": "{{baseUrl}}/api/v1/auth/profile" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"usr_owner\",\n  \"name\": \"Ava Chen\",\n  \"email\": \"owner@demo.dev\",\n  \"avatar\": \"https://cdn.example.com/avatars/ava.png\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete account",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/profile", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "profile"] },
+            "description": "Anonymises the account (renames to \"Deleted user\", randomises email/password, drops owned projects and memberships, unassigns tasks). Refused with `422 OWNER_CANNOT_LEAVE` while the user owns any project that still has other members.\n\n**Errors**: `422 OWNER_CANNOT_LEAVE`."
+          },
+          "response": [
+            { "name": "204 No Content", "originalRequest": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/auth/profile" }, "status": "No Content", "code": 204, "body": "" }
+          ]
+        },
+        {
+          "name": "Change password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"currentPassword\": \"Demo1234!\",\n  \"newPassword\": \"NewSecret1\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/change-password", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "change-password"] },
+            "description": "Changes the password. Requires the current password."
+          },
+          "response": [
+            { "name": "204 No Content", "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/auth/change-password" }, "status": "No Content", "code": 204, "body": "" }
+          ]
+        },
+        {
+          "name": "Forgot password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"owner@demo.dev\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "forgot-password"] },
+            "description": "Always returns 204 whether the email exists or not. The reset link is written to the server log (`origin/reset-password?token=...`). Rate limited: 10/min/IP."
+          },
+          "response": [
+            { "name": "204 No Content", "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/auth/forgot-password" }, "status": "No Content", "code": 204, "body": "" }
+          ]
+        },
+        {
+          "name": "Reset password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"<token-from-reset-link>\",\n  \"password\": \"NewSecret1\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["api", "v1", "auth", "reset-password"] },
+            "description": "Consumes the reset token from `/auth/forgot-password`. Revokes all refresh tokens for the user. Rate limited: 10/min/IP."
+          },
+          "response": [
+            { "name": "204 No Content", "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/auth/reset-password" }, "status": "No Content", "code": 204, "body": "" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Search users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/search?q=ava",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "search"],
+              "query": [{ "key": "q", "value": "ava", "description": "Search term. ≤1 character returns []. Max 10 results." }]
+            },
+            "description": "Search by name or email (case-insensitive). Returns at most 10 users. Anonymised accounts are excluded."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/users/search?q=ava" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"usr_owner\",\n      \"name\": \"Ava Chen\",\n      \"email\": \"owner@demo.dev\",\n      \"avatarUrl\": null\n    }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "List my projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "search", "value": "", "disabled": true, "description": "Case-insensitive name contains" },
+                { "key": "status", "value": "ACTIVE", "disabled": true, "description": "ACTIVE | ARCHIVED" }
+              ]
+            },
+            "description": "Lists the projects the caller belongs to (newest activity first), with member/task counters and a 4-person member preview. Default pagination: `page=1`, `limit=10` (max 100)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/projects?page=1&limit=10" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"prj_web\",\n      \"name\": \"Website Redesign\",\n      \"description\": \"New marketing site with a faster, accessible design.\",\n      \"status\": \"ACTIVE\",\n      \"ownerId\": \"usr_owner\",\n      \"myRole\": \"OWNER\",\n      \"memberCount\": 5,\n      \"membersPreview\": [\n        { \"id\": \"usr_owner\",  \"name\": \"Ava Chen\",        \"email\": \"owner@demo.dev\",  \"avatarUrl\": null },\n        { \"id\": \"usr_admin\",  \"name\": \"Marcus Reed\",     \"email\": \"admin@demo.dev\",  \"avatarUrl\": null },\n        { \"id\": \"usr_member\", \"name\": \"Priya Natarajan\", \"email\": \"member@demo.dev\", \"avatarUrl\": null },\n        { \"id\": \"usr_dev1\",   \"name\": \"Diego Alvarez\",   \"email\": \"diego@demo.dev\",  \"avatarUrl\": null }\n      ],\n      \"taskCount\": 16,\n      \"doneCount\": 2,\n      \"overdueCount\": 0,\n      \"createdAt\": \"2026-08-11T09:00:00.000Z\",\n      \"updatedAt\": \"2026-10-09T09:00:00.000Z\"\n    },\n    {\n      \"id\": \"prj_mobile\",\n      \"name\": \"Mobile App v2\",\n      \"description\": \"Offline mode, push notifications and a new onboarding flow.\",\n      \"status\": \"ACTIVE\",\n      \"ownerId\": \"usr_admin\",\n      \"myRole\": \"ADMIN\",\n      \"memberCount\": 4,\n      \"membersPreview\": [\n        { \"id\": \"usr_admin\",  \"name\": \"Marcus Reed\",     \"email\": \"admin@demo.dev\",  \"avatarUrl\": null },\n        { \"id\": \"usr_owner\",  \"name\": \"Ava Chen\",        \"email\": \"owner@demo.dev\",  \"avatarUrl\": null },\n        { \"id\": \"usr_member\", \"name\": \"Priya Natarajan\", \"email\": \"member@demo.dev\", \"avatarUrl\": null },\n        { \"id\": \"usr_dev3\",   \"name\": \"Liam Novak\",      \"email\": \"liam@demo.dev\",   \"avatarUrl\": null }\n      ],\n      \"taskCount\": 12,\n      \"doneCount\": 2,\n      \"overdueCount\": 0,\n      \"createdAt\": \"2026-08-26T09:00:00.000Z\",\n      \"updatedAt\": \"2026-10-08T09:00:00.000Z\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"limit\": 10,\n    \"total\": 4,\n    \"totalPages\": 1,\n    \"hasNext\": false,\n    \"hasPrev\": false\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create project",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Q4 Roadmap\",\n  \"description\": \"Roadmap, OKRs and milestones for Q4.\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/projects", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects"] },
+            "description": "Creates a project and makes the caller its OWNER. `Location` header points to the new project."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/projects" },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Location", "value": "/api/v1/projects/prj_<random>" }],
+              "body": "{\n  \"id\": \"prj_<random>\",\n  \"name\": \"Q4 Roadmap\",\n  \"description\": \"Roadmap, OKRs and milestones for Q4.\",\n  \"status\": \"ACTIVE\",\n  \"ownerId\": \"usr_owner\",\n  \"myRole\": \"OWNER\",\n  \"memberCount\": 1,\n  \"membersPreview\": [\n    { \"id\": \"usr_owner\", \"name\": \"Ava Chen\", \"email\": \"owner@demo.dev\", \"avatarUrl\": null }\n  ],\n  \"taskCount\": 0,\n  \"doneCount\": 0,\n  \"overdueCount\": 0,\n  \"createdAt\": \"2026-10-11T12:00:00.000Z\",\n  \"updatedAt\": \"2026-10-11T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get project",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }] },
+            "description": "Returns one project. 404 for projects the caller does not belong to.\n\n**Errors**: `404 NOT_FOUND` (unknown or not a member)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/projects/prj_web" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": {\n    \"id\": \"prj_web\",\n    \"name\": \"Website Redesign\",\n    \"description\": \"New marketing site with a faster, accessible design.\",\n    \"status\": \"ACTIVE\",\n    \"ownerId\": \"usr_owner\",\n    \"myRole\": \"OWNER\",\n    \"memberCount\": 5,\n    \"membersPreview\": [\n      { \"id\": \"usr_owner\",  \"name\": \"Ava Chen\",        \"email\": \"owner@demo.dev\",  \"avatarUrl\": null },\n      { \"id\": \"usr_admin\",  \"name\": \"Marcus Reed\",     \"email\": \"admin@demo.dev\",  \"avatarUrl\": null },\n      { \"id\": \"usr_member\", \"name\": \"Priya Natarajan\", \"email\": \"member@demo.dev\", \"avatarUrl\": null },\n      { \"id\": \"usr_dev1\",   \"name\": \"Diego Alvarez\",   \"email\": \"diego@demo.dev\",  \"avatarUrl\": null }\n    ],\n    \"taskCount\": 16,\n    \"doneCount\": 2,\n    \"overdueCount\": 0,\n    \"createdAt\": \"2026-08-11T09:00:00.000Z\",\n    \"updatedAt\": \"2026-10-09T09:00:00.000Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update project",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"description\": \"New marketing site with a faster, accessible design. (updated)\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }] },
+            "description": "Updates name and/or description. OWNER or ADMIN only.\n\n**Errors**: `403 FORBIDDEN` for MEMBERs."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "PATCH", "url": "{{baseUrl}}/api/v1/projects/prj_web" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": {\n    \"id\": \"prj_web\",\n    \"name\": \"Website Redesign\",\n    \"description\": \"New marketing site with a faster, accessible design. (updated)\",\n    \"status\": \"ACTIVE\",\n    \"ownerId\": \"usr_owner\",\n    \"myRole\": \"OWNER\",\n    \"memberCount\": 5,\n    \"membersPreview\": [],\n    \"taskCount\": 16,\n    \"doneCount\": 2,\n    \"overdueCount\": 0,\n    \"createdAt\": \"2026-08-11T09:00:00.000Z\",\n    \"updatedAt\": \"2026-10-11T12:00:00.000Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete project",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }] },
+            "description": "OWNER only. Cascades into members, labels, tasks, comments, activity.\n\n**Errors**: `403 FORBIDDEN` (not the owner)."
+          },
+          "response": [
+            { "name": "204 No Content", "originalRequest": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/projects/prj_web" }, "status": "No Content", "code": 204, "body": "" }
+          ]
+        },
+        {
+          "name": "Archive project",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/archive", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "archive"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }] },
+            "description": "OWNER only. Archived projects are read-only: tasks/labels/members cannot be written."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/projects/prj_web/archive" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": {\n    \"id\": \"prj_web\",\n    \"name\": \"Website Redesign\",\n    \"description\": \"New marketing site with a faster, accessible design.\",\n    \"status\": \"ARCHIVED\",\n    \"ownerId\": \"usr_owner\",\n    \"myRole\": \"OWNER\",\n    \"memberCount\": 5,\n    \"membersPreview\": [],\n    \"taskCount\": 16,\n    \"doneCount\": 2,\n    \"overdueCount\": 0,\n    \"createdAt\": \"2026-08-11T09:00:00.000Z\",\n    \"updatedAt\": \"2026-10-11T12:00:00.000Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Restore project",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/restore", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "restore"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }] },
+            "description": "OWNER only. Switches an archived project back to ACTIVE."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/projects/prj_q3/restore" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": {\n    \"id\": \"prj_q3\",\n    \"name\": \"Q3 Marketing Launch\",\n    \"description\": \"Campaign assets and launch checklist for Q3.\",\n    \"status\": \"ACTIVE\",\n    \"ownerId\": \"usr_owner\",\n    \"myRole\": \"OWNER\",\n    \"memberCount\": 2,\n    \"membersPreview\": [],\n    \"taskCount\": 5,\n    \"doneCount\": 5,\n    \"overdueCount\": 0,\n    \"createdAt\": \"2026-06-12T09:00:00.000Z\",\n    \"updatedAt\": \"2026-10-11T12:00:00.000Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Project activity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/:projectId/activity?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects", ":projectId", "activity"],
+              "variable": [{ "key": "projectId", "value": "{{projectId}}" }],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "Newest first. Default `page=1`, `limit=10` (max 100)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/projects/prj_web/activity?page=1&limit=2" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"act_0125\",\n      \"projectId\": \"prj_web\",\n      \"projectName\": \"Website Redesign\",\n      \"actor\": { \"id\": \"usr_dev1\", \"name\": \"Diego Alvarez\", \"email\": \"diego@demo.dev\", \"avatarUrl\": null },\n      \"action\": \"task.completed\",\n      \"message\": \"moved \\\"Create 404 illustration\\\" to Done\",\n      \"createdAt\": \"2026-10-09T14:00:00.000Z\"\n    },\n    {\n      \"id\": \"act_0126\",\n      \"projectId\": \"prj_web\",\n      \"projectName\": \"Website Redesign\",\n      \"actor\": { \"id\": \"usr_owner\", \"name\": \"Ava Chen\", \"email\": \"owner@demo.dev\", \"avatarUrl\": null },\n      \"action\": \"task.created\",\n      \"message\": \"created \\\"Customer logos carousel\\\"\",\n      \"createdAt\": \"2026-10-05T09:00:00.000Z\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"limit\": 2,\n    \"total\": 23,\n    \"totalPages\": 12,\n    \"hasNext\": true,\n    \"hasPrev\": false\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Members",
+      "item": [
+        {
+          "name": "List members",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/members", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "members"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }] },
+            "description": "OWNER first, then ADMINs, then MEMBERs, each group by join date."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/projects/prj_web/members" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"mbr_0001\",\n      \"projectId\": \"prj_web\",\n      \"role\": \"OWNER\",\n      \"joinedAt\": \"2026-08-11T09:00:00.000Z\",\n      \"user\": { \"id\": \"usr_owner\", \"name\": \"Ava Chen\", \"email\": \"owner@demo.dev\", \"avatarUrl\": null }\n    },\n    {\n      \"id\": \"mbr_0002\",\n      \"projectId\": \"prj_web\",\n      \"role\": \"ADMIN\",\n      \"joinedAt\": \"2026-08-12T09:00:00.000Z\",\n      \"user\": { \"id\": \"usr_admin\", \"name\": \"Marcus Reed\", \"email\": \"admin@demo.dev\", \"avatarUrl\": null }\n    },\n    {\n      \"id\": \"mbr_0003\",\n      \"projectId\": \"prj_web\",\n      \"role\": \"MEMBER\",\n      \"joinedAt\": \"2026-08-13T09:00:00.000Z\",\n      \"user\": { \"id\": \"usr_member\", \"name\": \"Priya Natarajan\", \"email\": \"member@demo.dev\", \"avatarUrl\": null }\n    },\n    {\n      \"id\": \"mbr_0004\",\n      \"projectId\": \"prj_web\",\n      \"role\": \"MEMBER\",\n      \"joinedAt\": \"2026-08-21T09:00:00.000Z\",\n      \"user\": { \"id\": \"usr_dev1\", \"name\": \"Diego Alvarez\", \"email\": \"diego@demo.dev\", \"avatarUrl\": null }\n    },\n    {\n      \"id\": \"mbr_0005\",\n      \"projectId\": \"prj_web\",\n      \"role\": \"MEMBER\",\n      \"joinedAt\": \"2026-08-31T09:00:00.000Z\",\n      \"user\": { \"id\": \"usr_dev2\", \"name\": \"Sara Okafor\", \"email\": \"sara@demo.dev\", \"avatarUrl\": null }\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Add member",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"userId\": \"usr_dev3\",\n  \"role\": \"MEMBER\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/members", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "members"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }] },
+            "description": "OWNER may add ADMIN or MEMBER. ADMIN may add MEMBER only. Adds a `member.added` notification to the new user.\n\n**Errors**: `409 ALREADY_MEMBER`, `400 VALIDATION_ERROR` (user not found), `403 FORBIDDEN`."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/projects/prj_web/members" },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": {\n    \"id\": \"mbr_<random>\",\n    \"projectId\": \"prj_web\",\n    \"role\": \"MEMBER\",\n    \"joinedAt\": \"2026-10-11T12:00:00.000Z\",\n    \"user\": { \"id\": \"usr_dev3\", \"name\": \"Liam Novak\", \"email\": \"liam@demo.dev\", \"avatarUrl\": null }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Change role",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"role\": \"ADMIN\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/members/:userId", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "members", ":userId"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }, { "key": "userId", "value": "usr_dev3" }] },
+            "description": "OWNER only. Cannot change the owner's role.\n\n**Errors**: `422 OWNER_ROLE_LOCKED` (target is the owner)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "PATCH", "url": "{{baseUrl}}/api/v1/projects/prj_web/members/usr_dev3" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": {\n    \"id\": \"mbr_0009\",\n    \"projectId\": \"prj_mobile\",\n    \"role\": \"ADMIN\",\n    \"joinedAt\": \"2026-09-10T09:00:00.000Z\",\n    \"user\": { \"id\": \"usr_dev3\", \"name\": \"Liam Novak\", \"email\": \"liam@demo.dev\", \"avatarUrl\": null }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Remove member",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/members/:userId", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "members", ":userId"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }, { "key": "userId", "value": "usr_dev3" }] },
+            "description": "ADMIN removes MEMBER. MEMBERs can only remove themselves (where `:userId` is their own id). Their tasks are unassigned, not deleted.\n\n**Errors**: `422 OWNER_CANNOT_LEAVE` (target is the owner), `403 FORBIDDEN`."
+          },
+          "response": [
+            { "name": "204 No Content", "originalRequest": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/projects/prj_web/members/usr_dev3" }, "status": "No Content", "code": 204, "body": "" }
+          ]
+        },
+        {
+          "name": "Transfer ownership",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"userId\": \"usr_admin\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/transfer-ownership", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "transfer-ownership"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }] },
+            "description": "OWNER only. Demotes the caller to ADMIN, sets the new OWNER, and updates `Project.ownerId`. Target must be a member.\n\n**Errors**: `400 VALIDATION_ERROR` (not a member / same as caller)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/projects/prj_web/transfer-ownership" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": {\n    \"id\": \"mbr_0002\",\n    \"projectId\": \"prj_web\",\n    \"role\": \"OWNER\",\n    \"joinedAt\": \"2026-08-12T09:00:00.000Z\",\n    \"user\": { \"id\": \"usr_admin\", \"name\": \"Marcus Reed\", \"email\": \"admin@demo.dev\", \"avatarUrl\": null }\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "item": [
+        {
+          "name": "List tasks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/:projectId/tasks?sortBy=createdAt&order=desc&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects", ":projectId", "tasks"],
+              "variable": [{ "key": "projectId", "value": "{{projectId}}" }],
+              "query": [
+                { "key": "sortBy", "value": "createdAt", "description": "createdAt | updatedAt | dueDate | priority | title" },
+                { "key": "order", "value": "desc", "description": "asc | desc" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "search", "value": "", "disabled": true, "description": "case-insensitive title/label match" },
+                { "key": "status", "value": "", "disabled": true, "description": "comma-separated: TODO,IN_PROGRESS,IN_REVIEW,DONE" },
+                { "key": "priority", "value": "", "disabled": true, "description": "comma-separated: LOW,MEDIUM,HIGH,URGENT" },
+                { "key": "assigneeId", "value": "", "disabled": true },
+                { "key": "labelId", "value": "", "disabled": true, "description": "comma-separated label ids" },
+                { "key": "overdue", "value": "", "disabled": true, "description": "true to include only overdue" }
+              ]
+            },
+            "description": "Flat list with filters, sorting and paging. Multi-value `status`/`priority`/`labelId` accept comma-separated or repeated query params."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/projects/prj_web/tasks?sortBy=position&order=asc&page=1&limit=2" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"tsk_0035\",\n      \"projectId\": \"prj_web\",\n      \"title\": \"Design new homepage hero\",\n      \"description\": null,\n      \"status\": \"TODO\",\n      \"priority\": \"URGENT\",\n      \"position\": 1000,\n      \"dueDate\": \"2026-10-22T17:00:00.000Z\",\n      \"assignee\": { \"id\": \"usr_member\", \"name\": \"Priya Natarajan\", \"email\": \"member@demo.dev\", \"avatarUrl\": null },\n      \"creator\":  { \"id\": \"usr_owner\",  \"name\": \"Ava Chen\",        \"email\": \"owner@demo.dev\",  \"avatarUrl\": null },\n      \"labels\": [],\n      \"commentCount\": 2,\n      \"completedAt\": null,\n      \"createdAt\": \"2026-09-24T09:00:00.000Z\",\n      \"updatedAt\": \"2026-09-27T09:00:00.000Z\"\n    },\n    {\n      \"id\": \"tsk_0042\",\n      \"projectId\": \"prj_web\",\n      \"title\": \"Cookie consent banner\",\n      \"description\": \"Blocked until the API contract is final.\",\n      \"status\": \"TODO\",\n      \"priority\": \"LOW\",\n      \"position\": 4000,\n      \"dueDate\": \"2026-10-08T17:00:00.000Z\",\n      \"assignee\": { \"id\": \"usr_owner\",  \"name\": \"Ava Chen\",        \"email\": \"owner@demo.dev\",  \"avatarUrl\": null },\n      \"creator\":  { \"id\": \"usr_owner\",  \"name\": \"Ava Chen\",        \"email\": \"owner@demo.dev\",  \"avatarUrl\": null },\n      \"labels\": [],\n      \"commentCount\": 1,\n      \"completedAt\": null,\n      \"createdAt\": \"2026-09-16T09:00:00.000Z\",\n      \"updatedAt\": \"2026-09-19T09:00:00.000Z\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"limit\": 2,\n    \"total\": 16,\n    \"totalPages\": 8,\n    \"hasNext\": true,\n    \"hasPrev\": false\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Board view",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/projects/:projectId/board",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "projects", ":projectId", "board"],
+              "variable": [{ "key": "projectId", "value": "{{projectId}}" }],
+              "query": [
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "status", "value": "", "disabled": true, "description": "comma-separated statuses" },
+                { "key": "priority", "value": "", "disabled": true, "description": "comma-separated priorities" },
+                { "key": "assigneeId", "value": "", "disabled": true },
+                { "key": "labelId", "value": "", "disabled": true, "description": "comma-separated label ids" },
+                { "key": "overdue", "value": "", "disabled": true }
+              ]
+            },
+            "description": "Returns the tasks bucketed by status, ordered by `position` within each column."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/projects/prj_web/board" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": {\n    \"TODO\": [\n      {\n        \"id\": \"tsk_0035\",\n        \"projectId\": \"prj_web\",\n        \"title\": \"Design new homepage hero\",\n        \"description\": null,\n        \"status\": \"TODO\",\n        \"priority\": \"URGENT\",\n        \"position\": 1000,\n        \"dueDate\": \"2026-10-22T17:00:00.000Z\",\n        \"assignee\": { \"id\": \"usr_member\", \"name\": \"Priya Natarajan\", \"email\": \"member@demo.dev\", \"avatarUrl\": null },\n        \"creator\":  { \"id\": \"usr_owner\",  \"name\": \"Ava Chen\",        \"email\": \"owner@demo.dev\",  \"avatarUrl\": null },\n        \"labels\": [],\n        \"commentCount\": 2,\n        \"completedAt\": null,\n        \"createdAt\": \"2026-09-24T09:00:00.000Z\",\n        \"updatedAt\": \"2026-09-27T09:00:00.000Z\"\n      }\n    ],\n    \"IN_PROGRESS\": [\n      {\n        \"id\": \"tsk_0036\",\n        \"projectId\": \"prj_web\",\n        \"title\": \"Fix navbar overlap on Safari\",\n        \"description\": null,\n        \"status\": \"IN_PROGRESS\",\n        \"priority\": \"HIGH\",\n        \"position\": 1000,\n        \"dueDate\": \"2026-10-23T17:00:00.000Z\",\n        \"assignee\": { \"id\": \"usr_member\", \"name\": \"Priya Natarajan\", \"email\": \"member@demo.dev\", \"avatarUrl\": null },\n        \"creator\":  { \"id\": \"usr_owner\",  \"name\": \"Ava Chen\",        \"email\": \"owner@demo.dev\",  \"avatarUrl\": null },\n        \"labels\": [\n          { \"id\": \"lbl_0019\", \"projectId\": \"prj_web\", \"name\": \"Chore\", \"color\": \"#64748b\" }\n        ],\n        \"commentCount\": 2,\n        \"completedAt\": null,\n        \"createdAt\": \"2026-10-03T09:00:00.000Z\",\n        \"updatedAt\": \"2026-10-06T09:00:00.000Z\"\n      }\n    ],\n    \"IN_REVIEW\": [],\n    \"DONE\": [\n      {\n        \"id\": \"tsk_0046\",\n        \"projectId\": \"prj_web\",\n        \"title\": \"Create 404 illustration\",\n        \"description\": \"Blocked until the API contract is final.\",\n        \"status\": \"DONE\",\n        \"priority\": \"HIGH\",\n        \"position\": 1000,\n        \"dueDate\": \"2026-10-06T17:00:00.000Z\",\n        \"assignee\": { \"id\": \"usr_dev1\", \"name\": \"Diego Alvarez\", \"email\": \"diego@demo.dev\", \"avatarUrl\": null },\n        \"creator\":  { \"id\": \"usr_dev1\", \"name\": \"Diego Alvarez\", \"email\": \"diego@demo.dev\", \"avatarUrl\": null },\n        \"labels\": [\n          { \"id\": \"lbl_0016\", \"projectId\": \"prj_web\", \"name\": \"Feature\", \"color\": \"#6366f1\" }\n        ],\n        \"commentCount\": 1,\n        \"completedAt\": \"2026-10-09T14:00:00.000Z\",\n        \"createdAt\": \"2026-09-24T09:00:00.000Z\",\n        \"updatedAt\": \"2026-09-27T09:00:00.000Z\"\n      }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create task",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Wire up sitemap\",\n  \"description\": \"Generate /sitemap.xml from the projects API.\",\n  \"status\": \"TODO\",\n  \"priority\": \"MEDIUM\",\n  \"dueDate\": \"2026-10-30T17:00:00.000Z\",\n  \"assigneeId\": \"usr_dev2\",\n  \"labelIds\": [\"lbl_0016\"]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/tasks", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "tasks"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }] },
+            "description": "All fields except `title` are optional. `status` defaults to `TODO`, `priority` to `MEDIUM`. `assigneeId` must be a project member; `labelIds` must exist in the project.\n\n**Errors**: `422 ASSIGNEE_NOT_MEMBER`, `422 PROJECT_ARCHIVED`, `400 VALIDATION_ERROR` (bad labels)."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/projects/prj_web/tasks" },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"tsk_<random>\",\n  \"projectId\": \"prj_web\",\n  \"title\": \"Wire up sitemap\",\n  \"description\": \"Generate /sitemap.xml from the projects API.\",\n  \"status\": \"TODO\",\n  \"priority\": \"MEDIUM\",\n  \"position\": 17000,\n  \"dueDate\": \"2026-10-30T17:00:00.000Z\",\n  \"assignee\": { \"id\": \"usr_dev2\", \"name\": \"Sara Okafor\", \"email\": \"sara@demo.dev\", \"avatarUrl\": null },\n  \"creator\":  { \"id\": \"usr_owner\", \"name\": \"Ava Chen\",   \"email\": \"owner@demo.dev\", \"avatarUrl\": null },\n  \"labels\": [\n    { \"id\": \"lbl_0016\", \"projectId\": \"prj_web\", \"name\": \"Feature\", \"color\": \"#6366f1\" }\n  ],\n  \"commentCount\": 0,\n  \"completedAt\": null,\n  \"createdAt\": \"2026-10-11T12:00:00.000Z\",\n  \"updatedAt\": \"2026-10-11T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get task",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/tasks/:taskId", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "tasks", ":taskId"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }, { "key": "taskId", "value": "{{taskId}}" }] },
+            "description": "404 if the task id does not belong to the project in the URL (IDOR defence).\n\n**Errors**: `404 NOT_FOUND`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/projects/prj_web/tasks/tsk_0035" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"tsk_0035\",\n  \"projectId\": \"prj_web\",\n  \"title\": \"Design new homepage hero\",\n  \"description\": null,\n  \"status\": \"TODO\",\n  \"priority\": \"URGENT\",\n  \"position\": 1000,\n  \"dueDate\": \"2026-10-22T17:00:00.000Z\",\n  \"assignee\": { \"id\": \"usr_member\", \"name\": \"Priya Natarajan\", \"email\": \"member@demo.dev\", \"avatarUrl\": null },\n  \"creator\":  { \"id\": \"usr_owner\",  \"name\": \"Ava Chen\",        \"email\": \"owner@demo.dev\",  \"avatarUrl\": null },\n  \"labels\": [],\n  \"commentCount\": 2,\n  \"completedAt\": null,\n  \"createdAt\": \"2026-09-24T09:00:00.000Z\",\n  \"updatedAt\": \"2026-09-27T09:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update task",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"IN_PROGRESS\",\n  \"labelIds\": [\"lbl_0016\", \"lbl_0017\"]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/tasks/:taskId", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "tasks", ":taskId"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }, { "key": "taskId", "value": "{{taskId}}" }] },
+            "description": "All fields optional. Sending `labelIds` replaces the label set. When `status` changes, the task is moved to the end of the new column and `completedAt` is set/cleared.\n\n**Errors**: `403 FORBIDDEN`, `422 ASSIGNEE_NOT_MEMBER`, `422 PROJECT_ARCHIVED`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "PATCH", "url": "{{baseUrl}}/api/v1/projects/prj_web/tasks/tsk_0035" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"tsk_0035\",\n  \"projectId\": \"prj_web\",\n  \"title\": \"Design new homepage hero\",\n  \"description\": null,\n  \"status\": \"IN_PROGRESS\",\n  \"priority\": \"URGENT\",\n  \"position\": 6000,\n  \"dueDate\": \"2026-10-22T17:00:00.000Z\",\n  \"assignee\": { \"id\": \"usr_member\", \"name\": \"Priya Natarajan\", \"email\": \"member@demo.dev\", \"avatarUrl\": null },\n  \"creator\":  { \"id\": \"usr_owner\",  \"name\": \"Ava Chen\",        \"email\": \"owner@demo.dev\",  \"avatarUrl\": null },\n  \"labels\": [\n    { \"id\": \"lbl_0016\", \"projectId\": \"prj_web\", \"name\": \"Feature\", \"color\": \"#6366f1\" },\n    { \"id\": \"lbl_0017\", \"projectId\": \"prj_web\", \"name\": \"Design\",  \"color\": \"#ec4899\" }\n  ],\n  \"commentCount\": 2,\n  \"completedAt\": null,\n  \"createdAt\": \"2026-09-24T09:00:00.000Z\",\n  \"updatedAt\": \"2026-10-11T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Move task (board drag/drop)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"DONE\",\n  \"afterId\": null\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/tasks/:taskId/move", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "tasks", ":taskId", "move"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }, { "key": "taskId", "value": "{{taskId}}" }] },
+            "description": "Lightweight reorder/move. `afterId` is the task id to place the moved task **after** within the target column; `null` puts it at the end. The server picks `position` floats; if the gaps run out it renumbers the column evenly.\n\n**Errors**: `400 VALIDATION_ERROR` (afterId not in column), `403 FORBIDDEN`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "PATCH", "url": "{{baseUrl}}/api/v1/projects/prj_web/tasks/tsk_0035/move" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"tsk_0035\",\n  \"projectId\": \"prj_web\",\n  \"title\": \"Design new homepage hero\",\n  \"description\": null,\n  \"status\": \"DONE\",\n  \"priority\": \"URGENT\",\n  \"position\": 3000,\n  \"dueDate\": \"2026-10-22T17:00:00.000Z\",\n  \"assignee\": { \"id\": \"usr_member\", \"name\": \"Priya Natarajan\", \"email\": \"member@demo.dev\", \"avatarUrl\": null },\n  \"creator\":  { \"id\": \"usr_owner\",  \"name\": \"Ava Chen\",        \"email\": \"owner@demo.dev\",  \"avatarUrl\": null },\n  \"labels\": [],\n  \"commentCount\": 2,\n  \"completedAt\": \"2026-10-11T12:00:00.000Z\",\n  \"createdAt\": \"2026-09-24T09:00:00.000Z\",\n  \"updatedAt\": \"2026-10-11T12:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete task",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/tasks/:taskId", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "tasks", ":taskId"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }, { "key": "taskId", "value": "{{taskId}}" }] },
+            "description": "OWNER, ADMIN or the creator can delete. Cascades into labels and comments.\n\n**Errors**: `403 FORBIDDEN`."
+          },
+          "response": [
+            { "name": "204 No Content", "originalRequest": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/projects/prj_web/tasks/tsk_0035" }, "status": "No Content", "code": 204, "body": "" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Comments",
+      "item": [
+        {
+          "name": "List comments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/tasks/:taskId/comments", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "tasks", ":taskId", "comments"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }, { "key": "taskId", "value": "{{taskId}}" }] },
+            "description": "Oldest first."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/projects/prj_web/tasks/tsk_0035/comments" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"cmt_0079\",\n      \"taskId\": \"tsk_0035\",\n      \"body\": \"Looks good to me 👍\",\n      \"createdAt\": \"2026-10-06T10:00:00.000Z\",\n      \"updatedAt\": \"2026-10-06T10:00:00.000Z\",\n      \"author\": { \"id\": \"usr_admin\", \"name\": \"Marcus Reed\", \"email\": \"admin@demo.dev\", \"avatarUrl\": null }\n    },\n    {\n      \"id\": \"cmt_0078\",\n      \"taskId\": \"tsk_0035\",\n      \"body\": \"I pushed a first draft, please review.\",\n      \"createdAt\": \"2026-10-10T09:00:00.000Z\",\n      \"updatedAt\": \"2026-10-10T09:00:00.000Z\",\n      \"author\": { \"id\": \"usr_member\", \"name\": \"Priya Natarajan\", \"email\": \"member@demo.dev\", \"avatarUrl\": null }\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create comment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"body\": \"Looks good, picking this up next.\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/tasks/:taskId/comments", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "tasks", ":taskId", "comments"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }, { "key": "taskId", "value": "{{taskId}}" }] },
+            "description": "Writes an activity log entry and broadcasts a realtime event."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/projects/prj_web/tasks/tsk_0035/comments" },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"cmt_<random>\",\n  \"taskId\": \"tsk_0035\",\n  \"body\": \"Looks good, picking this up next.\",\n  \"createdAt\": \"2026-10-11T12:00:00.000Z\",\n  \"updatedAt\": \"2026-10-11T12:00:00.000Z\",\n  \"author\": { \"id\": \"usr_owner\", \"name\": \"Ava Chen\", \"email\": \"owner@demo.dev\", \"avatarUrl\": null }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update comment",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"body\": \"Edited: looks good, picking this up next.\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/tasks/:taskId/comments/:commentId", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "tasks", ":taskId", "comments", ":commentId"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }, { "key": "taskId", "value": "{{taskId}}" }, { "key": "commentId", "value": "{{commentId}}" }] },
+            "description": "Only the author can edit.\n\n**Errors**: `403 FORBIDDEN`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "PATCH", "url": "{{baseUrl}}/api/v1/projects/prj_web/tasks/tsk_0035/comments/cmt_0078" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"cmt_0078\",\n  \"taskId\": \"tsk_0035\",\n  \"body\": \"Edited: I pushed a first draft, please review.\",\n  \"createdAt\": \"2026-10-10T09:00:00.000Z\",\n  \"updatedAt\": \"2026-10-11T12:00:00.000Z\",\n  \"author\": { \"id\": \"usr_member\", \"name\": \"Priya Natarajan\", \"email\": \"member@demo.dev\", \"avatarUrl\": null }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete comment",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/tasks/:taskId/comments/:commentId", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "tasks", ":taskId", "comments", ":commentId"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }, { "key": "taskId", "value": "{{taskId}}" }, { "key": "commentId", "value": "{{commentId}}" }] },
+            "description": "Author can always delete; OWNER and ADMIN can delete any comment.\n\n**Errors**: `403 FORBIDDEN`."
+          },
+          "response": [
+            { "name": "204 No Content", "originalRequest": { "method": "DELETE", "url": "{{baseUrl}}/api/v1/projects/prj_web/tasks/tsk_0035/comments/cmt_0078" }, "status": "No Content", "code": 204, "body": "" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Labels",
+      "item": [
+        {
+          "name": "List labels",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/labels", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "labels"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }] },
+            "description": "Alphabetical by name."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/projects/prj_web/labels" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": [\n    { \"id\": \"lbl_0015\", \"projectId\": \"prj_web\", \"name\": \"Bug\",     \"color\": \"#ef4444\" },\n    { \"id\": \"lbl_0017\", \"projectId\": \"prj_web\", \"name\": \"Design\",  \"color\": \"#ec4899\" },\n    { \"id\": \"lbl_0018\", \"projectId\": \"prj_web\", \"name\": \"Docs\",    \"color\": \"#14b8a6\" },\n    { \"id\": \"lbl_0016\", \"projectId\": \"prj_web\", \"name\": \"Feature\", \"color\": \"#6366f1\" },\n    { \"id\": \"lbl_0019\", \"projectId\": \"prj_web\", \"name\": \"Chore\",   \"color\": \"#64748b\" }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create label",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Regression\",\n  \"color\": \"#f97316\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/labels", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "labels"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }] },
+            "description": "OWNER or ADMIN. Names are unique per project (case-insensitive). `color` must be `#RGB` or `#RRGGBB`. Defaults to `#6366f1`.\n\n**Errors**: `409 LABEL_EXISTS`, `403 FORBIDDEN`."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/projects/prj_web/labels" },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"lbl_<random>\",\n  \"projectId\": \"prj_web\",\n  \"name\": \"Regression\",\n  \"color\": \"#f97316\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/dashboard/summary", "host": ["{{baseUrl}}"], "path": ["api", "v1", "dashboard", "summary"] },
+            "description": "Counts across every project the caller belongs to: totals, by status, by priority, 14-day completion trend, and 8 latest activity items."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/dashboard/summary" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": {\n    \"projects\": { \"total\": 4, \"active\": 3, \"archived\": 1 },\n    \"tasks\": {\n      \"total\": 43,\n      \"completed\": 9,\n      \"inProgress\": 11,\n      \"overdue\": 0,\n      \"highPriority\": 14,\n      \"assignedToMe\": 6\n    },\n    \"byStatus\": [\n      { \"status\": \"TODO\",        \"count\": 13 },\n      { \"status\": \"IN_PROGRESS\", \"count\": 11 },\n      { \"status\": \"IN_REVIEW\",   \"count\": 10 },\n      { \"status\": \"DONE\",        \"count\": 9  }\n    ],\n    \"byPriority\": [\n      { \"priority\": \"LOW\",    \"count\": 9  },\n      { \"priority\": \"MEDIUM\", \"count\": 14 },\n      { \"priority\": \"HIGH\",   \"count\": 11 },\n      { \"priority\": \"URGENT\", \"count\": 9  }\n    ],\n    \"completionTrend\": [\n      { \"date\": \"2026-09-28\", \"completed\": 1 },\n      { \"date\": \"2026-09-29\", \"completed\": 1 },\n      { \"date\": \"2026-09-30\", \"completed\": 0 },\n      { \"date\": \"2026-10-01\", \"completed\": 0 },\n      { \"date\": \"2026-10-02\", \"completed\": 0 },\n      { \"date\": \"2026-10-03\", \"completed\": 1 },\n      { \"date\": \"2026-10-04\", \"completed\": 0 },\n      { \"date\": \"2026-10-05\", \"completed\": 0 },\n      { \"date\": \"2026-10-06\", \"completed\": 0 },\n      { \"date\": \"2026-10-07\", \"completed\": 0 },\n      { \"date\": \"2026-10-08\", \"completed\": 0 },\n      { \"date\": \"2026-10-09\", \"completed\": 2 },\n      { \"date\": \"2026-10-10\", \"completed\": 2 },\n      { \"date\": \"2026-10-11\", \"completed\": 0 }\n    ],\n    \"recentActivity\": [\n      {\n        \"id\": \"act_0130\",\n        \"projectId\": \"prj_web\",\n        \"projectName\": \"Website Redesign\",\n        \"actor\": { \"id\": \"usr_dev1\", \"name\": \"Diego Alvarez\", \"email\": \"diego@demo.dev\", \"avatarUrl\": null },\n        \"action\": \"task.completed\",\n        \"message\": \"moved \\\"Responsive pricing table\\\" to Done\",\n        \"createdAt\": \"2026-10-03T14:00:00.000Z\"\n      }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "My tasks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboard/my-tasks?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "dashboard", "my-tasks"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "overdue", "value": "false", "description": "true to include only overdue tasks" }
+              ]
+            },
+            "description": "Tasks assigned to the caller that are not DONE. Includes `projectName` so the UI can show the source project. Sorted by `dueDate ASC NULLS LAST`, then newest first."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/dashboard/my-tasks?page=1&limit=2" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"tsk_0042\",\n      \"projectId\": \"prj_web\",\n      \"projectName\": \"Website Redesign\",\n      \"title\": \"Cookie consent banner\",\n      \"description\": \"Blocked until the API contract is final.\",\n      \"status\": \"TODO\",\n      \"priority\": \"LOW\",\n      \"position\": 4000,\n      \"dueDate\": \"2026-10-08T17:00:00.000Z\",\n      \"assignee\": { \"id\": \"usr_owner\", \"name\": \"Ava Chen\", \"email\": \"owner@demo.dev\", \"avatarUrl\": null },\n      \"creator\":  { \"id\": \"usr_owner\", \"name\": \"Ava Chen\", \"email\": \"owner@demo.dev\", \"avatarUrl\": null },\n      \"labels\": [],\n      \"commentCount\": 1,\n      \"completedAt\": null,\n      \"createdAt\": \"2026-09-16T09:00:00.000Z\",\n      \"updatedAt\": \"2026-09-19T09:00:00.000Z\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"limit\": 2,\n    \"total\": 6,\n    \"totalPages\": 3,\n    \"hasNext\": true,\n    \"hasPrev\": false\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "Newest first. `meta.unread` is the total of unread notifications (across all pages)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "GET", "url": "{{baseUrl}}/api/v1/notifications?page=1&limit=20" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": [\n    {\n      \"id\": \"ntf_0179\",\n      \"type\": \"task.assigned\",\n      \"message\": \"Marcus Reed assigned you \\\"Pricing page copy review\\\"\",\n      \"link\": \"/projects/prj_web/list\",\n      \"readAt\": null,\n      \"createdAt\": \"2026-10-10T07:00:00.000Z\"\n    },\n    {\n      \"id\": \"ntf_0180\",\n      \"type\": \"comment.added\",\n      \"message\": \"Priya Natarajan commented on \\\"Design new homepage hero\\\"\",\n      \"link\": \"/projects/prj_web/board\",\n      \"readAt\": null,\n      \"createdAt\": \"2026-10-09T09:00:00.000Z\"\n    },\n    {\n      \"id\": \"ntf_0181\",\n      \"type\": \"member.added\",\n      \"message\": \"Marcus Reed added you to Mobile App v2\",\n      \"link\": \"/projects/prj_mobile/board\",\n      \"readAt\": \"2026-09-10T09:00:00.000Z\",\n      \"createdAt\": \"2026-08-27T09:00:00.000Z\"\n    }\n  ],\n  \"meta\": {\n    \"page\": 1,\n    \"limit\": 20,\n    \"total\": 3,\n    \"totalPages\": 1,\n    \"hasNext\": false,\n    \"hasPrev\": false,\n    \"unread\": 2\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Mark notification read",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/notifications/:id/read", "host": ["{{baseUrl}}"], "path": ["api", "v1", "notifications", ":id", "read"], "variable": [{ "key": "id", "value": "{{notificationId}}" }] },
+            "description": "Sets `readAt = now()` if it was `null`; returns the existing record unchanged if it had already been read.\n\n**Errors**: `404 NOT_FOUND` (unknown id or not yours)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": { "method": "PATCH", "url": "{{baseUrl}}/api/v1/notifications/ntf_0179/read" },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": {\n    \"id\": \"ntf_0179\",\n    \"type\": \"task.assigned\",\n    \"message\": \"Marcus Reed assigned you \\\"Pricing page copy review\\\"\",\n    \"link\": \"/projects/prj_web/list\",\n    \"readAt\": \"2026-10-11T12:00:00.000Z\",\n    \"createdAt\": \"2026-10-10T07:00:00.000Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Mark all read",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/notifications/read-all", "host": ["{{baseUrl}}"], "path": ["api", "v1", "notifications", "read-all"] },
+            "description": "Sets `readAt = now()` on every unread notification of the caller."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": { "method": "POST", "url": "{{baseUrl}}/api/v1/notifications/read-all" },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"data\": { \"success\": true }\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

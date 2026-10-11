@@ -1,0 +1,16 @@
+// Generator + datasource only; models live in one file per area next to this one.
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../../generated/prisma"
+
+  // Pin the emitted module format instead of inferring it from tsconfig.json so generation is
+  // identical in Docker, CI and on a fresh clone. `.js` specifiers are what `module: nodenext` expects.
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
