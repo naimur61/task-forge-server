@@ -14,17 +14,21 @@ const DB_UNAVAILABLE_CODES = new Set([
   'P1008',
   'P1017',
   'P2024',
+  'P2037',
 ]);
 
 /** Connection-level messages from the pg driver / adapter. */
 const DB_UNAVAILABLE_PATTERN =
-  /ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|timeout exceeded when trying to connect|Connection terminated|Can't reach database server|too many clients|Server has closed the connection/i;
+  /ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|timeout exceeded when trying to connect|Connection terminated|Can't reach database server|too many clients|Too many database connections|remaining connection slots|Server has closed the connection/i;
 
 /** Checks whether the error means the database is unreachable (retry later), not a bug. */
 export function isDbUnavailable(err: unknown): boolean {
   if (err instanceof Prisma.PrismaClientInitializationError) return true;
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
-    return DB_UNAVAILABLE_CODES.has(err.code);
+    return (
+      DB_UNAVAILABLE_CODES.has(err.code) ||
+      DB_UNAVAILABLE_PATTERN.test(err.message)
+    );
   }
   if (err instanceof Error) {
     return (

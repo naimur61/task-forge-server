@@ -15,7 +15,8 @@ export const envSchema = z
     /** Connections per instance; defaults to 1 on Vercel (one pool per function instance). */
     DB_POOL_MAX: z.coerce.number().int().min(1).max(100).optional(),
     DB_CONNECTION_TIMEOUT_MS: z.coerce.number().int().min(100).default(5_000),
-    DB_IDLE_TIMEOUT_MS: z.coerce.number().int().min(1_000).default(30_000),
+    /** Idle connections are closed after this; defaults to 5 s on Vercel so frozen instances free their slots. */
+    DB_IDLE_TIMEOUT_MS: z.coerce.number().int().min(1_000).optional(),
     DB_SSL: booleanish.default(false),
 
     /** Comma-separated list of allowed browser origins. Required in production. */
@@ -87,6 +88,8 @@ const derivedEnvSchema = envSchema.transform((env) => ({
   ...env,
   /** Effective pool size: explicit value, else 1 on Vercel, else 10. */
   DB_POOL_MAX: env.DB_POOL_MAX ?? (process.env['VERCEL'] ? 1 : 10),
+  DB_IDLE_TIMEOUT_MS:
+    env.DB_IDLE_TIMEOUT_MS ?? (process.env['VERCEL'] ? 5_000 : 30_000),
   /** `FRONTEND_ORIGIN` as a list without trailing slashes (dev fallback: localhost 3000 and 4000). */
   FRONTEND_ORIGINS: (env.FRONTEND_ORIGIN ?? '')
     .split(',')
