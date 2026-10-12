@@ -12,7 +12,8 @@ export const envSchema = z
     PORT: z.coerce.number().int().min(1).max(65535).default(4000),
 
     DATABASE_URL: z.url(),
-    DB_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
+    /** Connections per instance; defaults to 1 on Vercel (one pool per function instance). */
+    DB_POOL_MAX: z.coerce.number().int().min(1).max(100).optional(),
     DB_CONNECTION_TIMEOUT_MS: z.coerce.number().int().min(100).default(5_000),
     DB_IDLE_TIMEOUT_MS: z.coerce.number().int().min(1_000).default(30_000),
     DB_SSL: booleanish.default(false),
@@ -84,12 +85,18 @@ export const envSchema = z
 /** Env schema plus the derived `FRONTEND_ORIGINS`. */
 const derivedEnvSchema = envSchema.transform((env) => ({
   ...env,
-  /** `FRONTEND_ORIGIN` as a list (dev fallback `http://localhost:3000`). */
+  /** Effective pool size: explicit value, else 1 on Vercel, else 10. */
+  DB_POOL_MAX: env.DB_POOL_MAX ?? (process.env['VERCEL'] ? 1 : 10),
+  /** `FRONTEND_ORIGIN` as a list without trailing slashes (dev fallback: localhost 3000 and 4000). */
   FRONTEND_ORIGINS: (env.FRONTEND_ORIGIN ?? '')
     .split(',')
-    .map((o) => o.trim())
+    .map((o) => o.trim().replace(/\/+$/, ''))
     .filter(Boolean)
-    .concat(env.FRONTEND_ORIGIN?.trim() ? [] : ['http://localhost:3000']),
+    .concat(
+      env.FRONTEND_ORIGIN?.trim()
+        ? []
+        : ['http://localhost:3000', 'http://localhost:4000'],
+    ),
 }));
 
 /** The validated environment including derived values. */

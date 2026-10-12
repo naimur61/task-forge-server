@@ -76,8 +76,9 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
-    const valid =
-      user && (await this.passwords.verify(user.passwordHash, dto.password));
+    const valid = user
+      ? await this.passwords.verify(user.passwordHash, dto.password)
+      : await this.passwords.verifyDummy(dto.password);
     if (!user || !valid) {
       throw new ApiException(
         401,

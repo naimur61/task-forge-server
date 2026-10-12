@@ -31,10 +31,17 @@ export class PrismaService
     });
   }
 
-  /** Connects to the database. */
+  /** Connects to the database; a failure is logged, not fatal (queries retry the connection lazily). */
   async onModuleInit(): Promise<void> {
-    await this.$connect();
-    this.logger.log('Connected to database');
+    try {
+      await this.$connect();
+      this.logger.log('Connected to database');
+    } catch (err) {
+      this.logger.error(
+        'Initial database connection failed; will retry on first query',
+        err instanceof Error ? err.stack : String(err),
+      );
+    }
   }
 
   /** Closes the database connection pool. */

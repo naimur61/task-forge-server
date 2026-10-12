@@ -288,11 +288,11 @@ INSERT INTO activity (id, project_id, actor_id, action, message, created_at) VAL
 -- ------------------------------------------------------------
 
 INSERT INTO notifications (id, user_id, type, message, link, read_at, created_at) VALUES
-  ('ntf_0179', 'usr_owner', 'task.assigned', 'Marcus Reed assigned you "Pricing page copy review"', '/projects/prj_web/list', NULL, '2026-10-10T07:00:00.000Z'::timestamptz),
-  ('ntf_0180', 'usr_owner', 'comment.added', 'Priya Natarajan commented on "Design new homepage hero"', '/projects/prj_web/board', NULL, '2026-10-09T09:00:00.000Z'::timestamptz),
+  ('ntf_0179', 'usr_owner', 'task.assigned', 'Marcus Reed assigned you "Pricing page copy review"', '/projects/prj_web/board?task=tsk_0039', NULL, '2026-10-10T07:00:00.000Z'::timestamptz),
+  ('ntf_0180', 'usr_owner', 'comment.added', 'Priya Natarajan commented on "Design new homepage hero"', '/projects/prj_web/board?task=tsk_0035', NULL, '2026-10-09T09:00:00.000Z'::timestamptz),
   ('ntf_0181', 'usr_owner', 'member.added', 'Marcus Reed added you to Mobile App v2', '/projects/prj_mobile/board', '2026-09-10T09:00:00.000Z'::timestamptz, '2026-08-27T09:00:00.000Z'::timestamptz),
-  ('ntf_0182', 'usr_member', 'task.assigned', 'Ava Chen assigned you "Design new homepage hero"', '/projects/prj_web/list', NULL, '2026-10-10T04:00:00.000Z'::timestamptz),
-  ('ntf_0183', 'usr_admin', 'comment.added', 'Ava Chen commented on "Offline sync for tasks"', '/projects/prj_mobile/board', NULL, '2026-10-09T12:00:00.000Z'::timestamptz);
+  ('ntf_0182', 'usr_member', 'task.assigned', 'Ava Chen assigned you "Design new homepage hero"', '/projects/prj_web/board?task=tsk_0035', NULL, '2026-10-10T04:00:00.000Z'::timestamptz),
+  ('ntf_0183', 'usr_admin', 'comment.added', 'Ava Chen commented on "Offline sync for tasks"', '/projects/prj_mobile/board?task=tsk_0051', NULL, '2026-10-09T12:00:00.000Z'::timestamptz);
 
 COMMIT;
 

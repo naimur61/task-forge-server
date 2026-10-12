@@ -139,7 +139,13 @@ export class ProjectsService {
   /** Deletes the project with everything in it (OWNER). */
   async remove(access: ProjectAccessInfo, userId: string): Promise<void> {
     if (!can.deleteProject(access.role)) throw this.denied();
-    await this.prisma.project.delete({ where: { id: access.projectId } });
+    // Notifications only hold a link to the project, so no FK cascade reaches them.
+    await this.prisma.$transaction([
+      this.prisma.notification.deleteMany({
+        where: { link: { startsWith: `/projects/${access.projectId}/` } },
+      }),
+      this.prisma.project.delete({ where: { id: access.projectId } }),
+    ]);
     this.realtime.toProject('project.deleted', access.projectId, userId, {
       message: `deleted project "${access.projectName}"`,
     });

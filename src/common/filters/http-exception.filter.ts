@@ -10,6 +10,7 @@ import type { Request, Response } from 'express';
 import { Prisma } from '../../../generated/prisma/client.js';
 import { ErrorCodes, type ApiError } from '../dto/api-response.dto.js';
 import { ApiException } from '../exceptions/api.exception.js';
+import { isDbUnavailable } from '../utils/prisma-errors.js';
 
 /** Maps HTTP status codes to the `error` text and the default `code`. */
 const STATUS_INFO: Readonly<Record<number, readonly [string, string]>> = {
@@ -45,6 +46,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     if (res.headersSent) return;
+    if (body.statusCode === 503 && !res.getHeader('Retry-After')) {
+      res.setHeader('Retry-After', 2);
+    }
     res.status(body.statusCode).json(body);
   }
 
@@ -79,6 +83,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
       if (exception.code === 'P2025') {
         return this.build(404, 'Resource not found.');
       }
+    }
+
+    if (isDbUnavailable(exception)) {
+      return this.build(
+        503,
+        'Service temporarily unavailable. Please retry shortly.',
+      );
     }
 
     return this.build(500, 'Internal server error.', ErrorCodes.INTERNAL);

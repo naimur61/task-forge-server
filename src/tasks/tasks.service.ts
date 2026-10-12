@@ -473,7 +473,7 @@ export class TasksService {
       actorId,
       'task.assigned',
       `${actor?.name ?? 'Someone'} assigned you "${task.title}"`,
-      `/projects/${access.projectId}/list?task=${task.id}`,
+      `/projects/${access.projectId}/board?task=${task.id}`,
     );
   }
 

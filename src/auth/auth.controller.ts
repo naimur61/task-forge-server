@@ -78,7 +78,7 @@ export class AuthController {
 
   /** Signs in and sets the refresh cookie. */
   @Public()
-  @Throttle(10)
+  @Throttle(10, 60_000, true)
   @HttpCode(200)
   @Post('login')
   @ApiOkResponse({ type: AuthSessionResponse })

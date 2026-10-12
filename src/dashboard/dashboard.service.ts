@@ -40,16 +40,13 @@ export class DashboardService {
     const trendStart = new Date(today.getTime() - (TREND_DAYS - 1) * DAY_MS);
     const notDone = { status: { not: 'DONE' as const } };
 
+    // 7 queries (was 11) so one request cannot exhaust a small connection pool.
     const [
       projectGroups,
-      total,
-      completed,
-      inProgress,
+      taskGroups,
       overdue,
       highPriority,
       assignedToMe,
-      statusGroups,
-      priorityGroups,
       completedRows,
       activity,
     ] = await Promise.all([
@@ -58,10 +55,10 @@ export class DashboardService {
         where: { id: { in: projectIds } },
         _count: { _all: true },
       }),
-      this.prisma.task.count({ where: inProjects }),
-      this.prisma.task.count({ where: { ...inProjects, status: 'DONE' } }),
-      this.prisma.task.count({
-        where: { ...inProjects, status: 'IN_PROGRESS' },
+      this.prisma.task.groupBy({
+        by: ['status', 'priority'],
+        where: inProjects,
+        _count: { _all: true },
       }),
       this.prisma.task.count({
         where: { ...inProjects, ...notDone, dueDate: { lt: now } },
@@ -76,16 +73,6 @@ export class DashboardService {
       this.prisma.task.count({
         where: { ...inProjects, ...notDone, assigneeId: userId },
       }),
-      this.prisma.task.groupBy({
-        by: ['status'],
-        where: inProjects,
-        _count: { _all: true },
-      }),
-      this.prisma.task.groupBy({
-        by: ['priority'],
-        where: inProjects,
-        _count: { _all: true },
-      }),
       this.prisma.task.findMany({
         where: { ...inProjects, completedAt: { gte: trendStart } },
         select: { completedAt: true },
@@ -97,6 +84,14 @@ export class DashboardService {
         include: ACTIVITY_INCLUDE,
       }),
     ]);
+
+    const countBy = (key: 'status' | 'priority', value: string): number =>
+      taskGroups
+        .filter((g) => g[key] === value)
+        .reduce((sum, g) => sum + g._count._all, 0);
+    const total = taskGroups.reduce((sum, g) => sum + g._count._all, 0);
+    const completed = countBy('status', 'DONE');
+    const inProgress = countBy('status', 'IN_PROGRESS');
 
     const projectsWith = (status: string): number =>
       projectGroups.find((g) => g.status === status)?._count._all ?? 0;
@@ -121,18 +116,20 @@ export class DashboardService {
       },
       byStatus: STATUSES.map((status) => ({
         status,
-        count: statusGroups.find((g) => g.status === status)?._count._all ?? 0,
+        count: countBy('status', status),
       })),
       byPriority: PRIORITIES.map((priority) => ({
         priority,
-        count:
-          priorityGroups.find((g) => g.priority === priority)?._count._all ?? 0,
+        count: countBy('priority', priority),
       })),
       completionTrend: Array.from({ length: TREND_DAYS }, (_, i) => {
         const date = dayKey(new Date(trendStart.getTime() + i * DAY_MS));
         return { date, completed: perDay.get(date) ?? 0 };
       }),
-      recentActivity: activity.map(toActivityResponse),
+      // Skip rows whose project is gone instead of failing the whole summary.
+      recentActivity: activity
+        .filter((row) => row.project)
+        .map(toActivityResponse),
     };
   }
 

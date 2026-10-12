@@ -52,9 +52,10 @@ export class ThrottleGuard implements CanActivate {
     const override = this.reflector.getAllAndOverride<
       ThrottleOptions | undefined
     >(THROTTLE_KEY, targets);
-    const { limit, ttlMs } = override ?? {
+    const { limit, ttlMs, failuresOnly } = override ?? {
       limit: this.config.get('THROTTLE_LIMIT', { infer: true }),
       ttlMs: this.config.get('THROTTLE_TTL_MS', { infer: true }),
+      failuresOnly: false,
     };
     const http = context.switchToHttp();
     const req = http.getRequest<Request>();
@@ -64,13 +65,22 @@ export class ThrottleGuard implements CanActivate {
       : 'global';
     const bucket = this.hit(`${req.ip ?? 'unknown'}|${route}`, ttlMs);
 
-    if (bucket.count <= limit) return true;
-    http
-      .getResponse<Response>()
-      .setHeader(
-        'Retry-After',
-        Math.ceil((bucket.resetAt - Date.now()) / 1000),
-      );
+    const res = http.getResponse<Response>();
+
+    if (bucket.count <= limit) {
+      // Refund requests that did not fail on the client's side (e.g. a successful login or a 5xx).
+      if (failuresOnly) {
+        res.once('finish', () => {
+          const failed = res.statusCode >= 400 && res.statusCode < 500;
+          if (!failed && bucket.count > 0) bucket.count -= 1;
+        });
+      }
+      return true;
+    }
+    res.setHeader(
+      'Retry-After',
+      Math.max(1, Math.ceil((bucket.resetAt - Date.now()) / 1000)),
+    );
     throw new HttpException('Too many requests.', 429);
   }
 
