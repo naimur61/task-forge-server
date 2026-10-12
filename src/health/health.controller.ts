@@ -58,7 +58,7 @@ export class HealthController {
     return { ...health, checks: { database } };
   }
 
-  /** Pings the database, derives the status and sets 503 when down. */
+  /** Probes the database, derives the status and sets 503 when down. */
   private async probe(
     res: Response,
   ): Promise<{ health: HealthResponse; database: 'up' | 'down' }> {
@@ -80,11 +80,14 @@ export class HealthController {
     };
   }
 
-  /** Runs `SELECT 1` with a timeout. */
+  /** Runs `SELECT 1` plus one read on a main table (the real data path) with a timeout. */
   private async pingDatabase(): Promise<'up' | 'down'> {
     const result = await this.indicators
       .check('database')
-      .attempt(() => this.prisma.$queryRaw`SELECT 1`)
+      .attempt(async () => {
+        await this.prisma.$queryRaw`SELECT 1`;
+        await this.prisma.project.findFirst({ select: { id: true } });
+      })
       .withTimeout(TIMEOUT_MS);
     return result.database.status === 'up' ? 'up' : 'down';
   }

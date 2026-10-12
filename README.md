@@ -10,14 +10,14 @@ cp .env.example .env                   # set DATABASE_URL and JWT_ACCESS_SECRET 
 npm install                            # also runs `prisma generate`
 npm run db:migrate                     # apply migrations
 npm run db:seed                        # demo data (optional)
-npm run start:dev                      # http://localhost:4000/api/v1
+npm run start:dev                      # http://localhost:4040/api/v1
 ```
 
-- Swagger UI: `http://localhost:4000/api/docs` (OpenAPI JSON at `/api/docs-json`, importable into Postman)
-- Socket.IO: same port as the API (`http://localhost:4000`), auth via `auth: { token: <accessToken> }`
+- Swagger UI: `http://localhost:4040/api/docs` (OpenAPI JSON at `/api/docs-json`, importable into Postman)
+- Socket.IO: same port as the API (`http://localhost:4040`), auth via `auth: { token: <accessToken> }`
 - Seed logins (password `Demo1234!`): `owner@demo.dev`, `admin@demo.dev`, `member@demo.dev`, `diego@demo.dev`, `sara@demo.dev`, `liam@demo.dev`
 
-Frontend `.env.local`: `NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1`, `NEXT_PUBLIC_SOCKET_URL=http://localhost:4000`.
+Frontend `.env.local`: `NEXT_PUBLIC_API_URL=http://localhost:4040/api/v1`, `NEXT_PUBLIC_SOCKET_URL=http://localhost:4040`.
 
 ## Environment
 

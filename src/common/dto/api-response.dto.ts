@@ -27,6 +27,7 @@ export const ErrorCodes = {
   UNPROCESSABLE: 'UNPROCESSABLE',
   TOO_MANY_REQUESTS: 'TOO_MANY_REQUESTS',
   SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
+  DATABASE_UNAVAILABLE: 'DATABASE_UNAVAILABLE',
   INTERNAL: 'INTERNAL',
 } as const;
 
@@ -47,6 +48,22 @@ export interface ApiError {
   message: string;
   code: ErrorCode;
   details: ErrorDetail[];
+  /** Same id as the `X-Request-Id` header and the server log line: quote it in bug reports. */
+  requestId?: string;
+  timestamp: string;
+  /** `METHOD /path` that failed. */
+  path: string;
+  /** True when repeating the request later may succeed (503, 429, DB write conflicts). */
+  retryable: boolean;
+  /** What to do about it, for a developer. */
+  hint?: string;
+  /** Underlying error; only sent outside production or when `ERROR_DEBUG=true`. */
+  debug?: {
+    name: string;
+    message: string;
+    prismaCode?: string;
+    stack?: string[];
+  };
 }
 
 /** Service result for list endpoints, recognised by the envelope interceptor via `instanceof`. */

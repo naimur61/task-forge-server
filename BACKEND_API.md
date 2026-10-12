@@ -21,7 +21,7 @@ It was written from the frontend code. The working reference is the mock API in 
 ### Base URL
 
 ```
-NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
+NEXT_PUBLIC_API_URL=http://localhost:4040/api/v1
 ```
 
 All paths below are relative to it. Request and response bodies are JSON (`Content-Type: application/json`).
@@ -78,6 +78,18 @@ Every 4xx/5xx returns this body (the frontend shows `message` and maps `details[
 ```
 
 `details` is always an array (empty when there is no field error).
+
+Every error body also carries debugging context (added fields, existing ones are unchanged):
+
+| Field | Meaning |
+| --- | --- |
+| `requestId` | Same value as the `X-Request-Id` header and the server log line; quote it in bug reports |
+| `timestamp`, `path` | When and `METHOD /url` |
+| `retryable` | `true` when repeating later may work (429, 503, DB write conflict) |
+| `hint` | (5xx and some 4xx) what a developer should check |
+| `debug` | (5xx only) `{ name, message, prismaCode?, stack[] }`; sent outside production or when `ERROR_DEBUG=true` |
+
+A database that cannot be reached or has no free connections returns `503 DATABASE_UNAVAILABLE` with `Retry-After`, never a bare 500.
 
 | Status | `error` | When |
 | --- | --- | --- |
@@ -730,6 +742,6 @@ The mock data (`src/mocks/data/users.json`) has demo users; the dev refresh cook
 
 ```bash
 # .env.local
-NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
+NEXT_PUBLIC_API_URL=http://localhost:4040/api/v1
 NEXT_PUBLIC_SOCKET_URL=http://localhost:4001   # or empty to turn live updates off
 ```

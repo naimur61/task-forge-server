@@ -9,7 +9,7 @@ export const envSchema = z
     NODE_ENV: z
       .enum(['development', 'test', 'production'])
       .default('development'),
-    PORT: z.coerce.number().int().min(1).max(65535).default(4000),
+    PORT: z.coerce.number().int().min(1).max(65535).default(4040),
 
     DATABASE_URL: z.url(),
     /** Connections per instance; defaults to 1 on Vercel (one pool per function instance). */
@@ -35,6 +35,9 @@ export const envSchema = z
     THROTTLE_LIMIT: z.coerce.number().int().min(1).default(600),
     /** Master switch for rate limiting (tests turn it off; never disable in production). */
     THROTTLE_ENABLED: booleanish.default(true),
+
+    /** Adds the underlying error (name, message, stack) to 5xx bodies. Defaults to on outside production. */
+    ERROR_DEBUG: booleanish.optional(),
 
     /** OpenAPI UI at `/api/docs`. Defaults to on outside production. */
     SWAGGER_ENABLED: booleanish.optional(),
