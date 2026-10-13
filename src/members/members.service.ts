@@ -14,7 +14,6 @@ import { NotificationsService } from '../notifications/notifications.service.js'
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { ProjectAccessInfo } from '../projects/project-access.js';
 import { can } from '../projects/project-permissions.js';
-import { RealtimeService } from '../realtime/realtime.service.js';
 import type {
   AddMemberDto,
   TransferOwnershipDto,
@@ -37,7 +36,6 @@ export class MembersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activity: ActivityService,
-    private readonly realtime: RealtimeService,
     private readonly notifications: NotificationsService,
   ) {}
 
@@ -100,11 +98,6 @@ export class MembersService {
       );
       return created;
     });
-    this.realtime.joinProject(dto.userId, access.projectId);
-    this.realtime.toProject('member.added', access.projectId, actorId, {
-      userId: dto.userId,
-      message: `added ${user.name} to "${access.projectName}"`,
-    });
     await this.notifications.notify(
       dto.userId,
       actorId,
@@ -146,9 +139,6 @@ export class MembersService {
         `changed ${target.user.name}'s role to ${dto.role.charAt(0)}${dto.role.slice(1).toLowerCase()}`,
       );
       return updated;
-    });
-    this.realtime.toProject('member.updated', access.projectId, actorId, {
-      userId,
     });
     return member;
   }
@@ -193,11 +183,6 @@ export class MembersService {
           : `removed ${target.user.name} from the project`,
       );
     });
-    // Tell the room (the removed user is still in it) before they leave it.
-    this.realtime.toProject('member.removed', access.projectId, actorId, {
-      userId,
-    });
-    this.realtime.leaveProject(userId, access.projectId);
   }
 
   /** Makes another member the OWNER; the caller becomes ADMIN. */
@@ -241,9 +226,6 @@ export class MembersService {
         `transferred ownership to ${target.user.name}`,
       );
       return promoted;
-    });
-    this.realtime.toProject('member.updated', access.projectId, actorId, {
-      userId: dto.userId,
     });
     return member;
   }

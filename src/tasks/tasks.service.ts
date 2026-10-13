@@ -21,7 +21,6 @@ import { NotificationsService } from '../notifications/notifications.service.js'
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { ProjectAccessInfo } from '../projects/project-access.js';
 import { can } from '../projects/project-permissions.js';
-import { RealtimeService } from '../realtime/realtime.service.js';
 import {
   type CreateTaskDto,
   type MoveTaskDto,
@@ -79,7 +78,6 @@ export class TasksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activity: ActivityService,
-    private readonly realtime: RealtimeService,
     private readonly notifications: NotificationsService,
   ) {}
 
@@ -179,9 +177,6 @@ export class TasksService {
       );
       return created;
     });
-    this.realtime.toProject('task.created', access.projectId, userId, {
-      taskId: task.id,
-    });
     await this.notifyAssigned(access, userId, task);
     return toTaskResponse(task);
   }
@@ -244,9 +239,6 @@ export class TasksService {
           : `updated "${updated.title}"`,
       );
       return updated;
-    });
-    this.realtime.toProject('task.updated', access.projectId, userId, {
-      taskId,
     });
     if (assigneeChanged) await this.notifyAssigned(access, userId, task);
     return toTaskResponse(task);
@@ -316,7 +308,6 @@ export class TasksService {
       }
       return updated;
     });
-    this.realtime.toProject('task.moved', access.projectId, userId, { taskId });
     return toTaskResponse(task);
   }
 
@@ -337,9 +328,6 @@ export class TasksService {
         'task.deleted',
         `deleted "${existing.title}"`,
       );
-    });
-    this.realtime.toProject('task.deleted', access.projectId, userId, {
-      taskId,
     });
   }
 

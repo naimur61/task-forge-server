@@ -95,11 +95,8 @@ export class ProjectsController {
   @HttpCode(204)
   @ApiNoContentResponse()
   @ApiForbiddenResponse({ description: 'Only the owner can delete.' })
-  remove(
-    @CurrentUser() user: AuthUser,
-    @ProjectAccess() access: ProjectAccessInfo,
-  ): Promise<void> {
-    return this.projects.remove(access, user.id);
+  remove(@ProjectAccess() access: ProjectAccessInfo): Promise<void> {
+    return this.projects.remove(access);
   }
 
   /** Archives the project (OWNER). */

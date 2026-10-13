@@ -14,7 +14,6 @@ import { clampPage } from '../common/dto/pagination.dto.js';
 import { USER_SUMMARY_SELECT } from '../common/dto/user-summary.dto.js';
 import { newId } from '../common/utils/ids.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { RealtimeService } from '../realtime/realtime.service.js';
 import type { ProjectAccessInfo } from './project-access.js';
 import { can } from './project-permissions.js';
 import type {
@@ -30,7 +29,6 @@ export class ProjectsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activity: ActivityService,
-    private readonly realtime: RealtimeService,
   ) {}
 
   /** Returns the projects the user is a member of, newest activity first. */
@@ -101,8 +99,6 @@ export class ProjectsService {
       );
       return project;
     });
-    this.realtime.joinProject(userId, id);
-    this.realtime.toUser('project.created', userId, userId, { projectId: id });
     return this.single(row, 'OWNER');
   }
 
@@ -132,12 +128,11 @@ export class ProjectsService {
       );
       return project;
     });
-    this.realtime.toProject('project.updated', access.projectId, userId);
     return this.single(row, access.role);
   }
 
   /** Deletes the project with everything in it (OWNER). */
-  async remove(access: ProjectAccessInfo, userId: string): Promise<void> {
+  async remove(access: ProjectAccessInfo): Promise<void> {
     if (!can.deleteProject(access.role)) throw this.denied();
     // Notifications only hold a link to the project, so no FK cascade reaches them.
     await this.prisma.$transaction([
@@ -146,10 +141,6 @@ export class ProjectsService {
       }),
       this.prisma.project.delete({ where: { id: access.projectId } }),
     ]);
-    this.realtime.toProject('project.deleted', access.projectId, userId, {
-      message: `deleted project "${access.projectName}"`,
-    });
-    this.realtime.closeProjectRoom(access.projectId);
   }
 
   /** Archives the project, making its tasks read-only (OWNER). */
@@ -184,7 +175,6 @@ export class ProjectsService {
       );
       return project;
     });
-    this.realtime.toProject('project.updated', access.projectId, userId);
     return this.single(row, access.role);
   }
 

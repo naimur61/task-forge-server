@@ -10,7 +10,6 @@ import { newId } from '../common/utils/ids.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { ProjectAccessInfo } from '../projects/project-access.js';
 import { can } from '../projects/project-permissions.js';
-import { RealtimeService } from '../realtime/realtime.service.js';
 import type { CommentResponse } from './dto/comment-response.dto.js';
 
 /** Columns of a comment that make up a `CommentResponse`. */
@@ -29,7 +28,6 @@ export class CommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activity: ActivityService,
-    private readonly realtime: RealtimeService,
   ) {}
 
   /** Lists a task's comments, oldest first. */
@@ -64,9 +62,6 @@ export class CommentsService {
       );
       return created;
     });
-    this.realtime.toProject('comment.added', access.projectId, userId, {
-      taskId,
-    });
     return comment;
   }
 
@@ -88,9 +83,6 @@ export class CommentsService {
       data: { body },
       select: COMMENT_SELECT,
     });
-    this.realtime.toProject('comment.updated', access.projectId, userId, {
-      taskId,
-    });
     return updated;
   }
 
@@ -107,9 +99,6 @@ export class CommentsService {
       throw new ForbiddenException('You do not have permission to do this.');
     }
     await this.prisma.comment.delete({ where: { id: commentId } });
-    this.realtime.toProject('comment.deleted', access.projectId, userId, {
-      taskId,
-    });
   }
 
   /** Finds a task of this project; a task id from another project is a 404 (IDOR defence). */

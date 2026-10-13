@@ -803,7 +803,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": { "mode": "raw", "raw": "{\n  \"body\": \"Looks good, picking this up next.\"\n}" },
             "url": { "raw": "{{baseUrl}}/api/v1/projects/:projectId/tasks/:taskId/comments", "host": ["{{baseUrl}}"], "path": ["api", "v1", "projects", ":projectId", "tasks", ":taskId", "comments"], "variable": [{ "key": "projectId", "value": "{{projectId}}" }, { "key": "taskId", "value": "{{taskId}}" }] },
-            "description": "Writes an activity log entry and broadcasts a realtime event."
+            "description": "Writes an activity log entry."
           },
           "response": [
             {

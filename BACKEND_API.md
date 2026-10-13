@@ -10,7 +10,7 @@ It was written from the frontend code. The working reference is the mock API in 
 - [3. Endpoint summary](#3-endpoint-summary-42-endpoints)
 - [4. Endpoint details](#4-endpoint-details)
 - [5. Permissions](#5-permissions)
-- [6. Real-time (Socket.io)](#6-real-time-socketio)
+- [6. Real-time (not implemented)](#6-real-time-not-implemented)
 - [7. Business rules checklist](#7-business-rules-checklist)
 - [8. Suggested database tables](#8-suggested-database-tables)
 
@@ -369,7 +369,7 @@ No body. Reads the refresh cookie.
 No body. Clear the refresh cookie (`Max-Age=0`). Response `204`.
 
 #### 5. `GET /auth/me`
-Response `200`: `AuthUser`. The socket server also uses this to check tokens.
+Response `200`: `AuthUser`.
 
 #### 6. `PUT /auth/profile`
 Request (all optional): `{ "name"?: string, "email"?: string, "avatar"?: string | null }`.
@@ -412,7 +412,7 @@ Projects the current user is a **member** of.
 | --- | --- | --- |
 | `search` | string | name contains, case-insensitive |
 | `status` | `ACTIVE` \| `ARCHIVED` | optional |
-| `page`, `limit` | number | see pagination (the command palette asks `limit=50`, the socket server asks `limit=100`) |
+| `page`, `limit` | number | see pagination (the command palette asks `limit=50`) |
 
 Sorted by `updatedAt` descending. Response: `{ data: Project[], meta }`.
 
@@ -631,50 +631,9 @@ The backend must enforce these. The frontend only hides buttons (`src/lib/permis
 
 ---
 
-## 6. Real-time (Socket.io)
+## 6. Real-time (not implemented)
 
-The demo uses `scripts/socket-server.mjs`; the real backend replaces it with its own Socket.io gateway. If `NEXT_PUBLIC_SOCKET_URL` is empty the app just runs without live updates, so this part is optional but recommended.
-
-### Connection
-- Client: `io(SOCKET_URL, { transports: ['websocket'], auth: { token: <accessToken> } })`. The token is re-read on every reconnect.
-- Server must verify the token (reject with `unauthorized` if invalid).
-- On connect, put the socket in these rooms:
-  - `user:<userId>`
-  - `project:<projectId>` for **every project the user belongs to**.
-- Keep rooms in sync: when a member is added, join them to `project:<id>`; when a project is created, join its creator; when a member is removed or a project is deleted, leave the room (after sending the event).
-
-### Events (server → client)
-
-Event name is the Socket.io event. Payload is always:
-
-```ts
-interface RealtimePayload {
-  projectId?: string;
-  taskId?: string;
-  userId?: string;     // user the change is about (added/removed member, assignee)
-  actorId: string;     // who did it
-  actorName: string;
-  message?: string;    // short text for a toast
-}
-```
-
-| Event | Sent after | Room |
-| --- | --- | --- |
-| `project.created` | `POST /projects` | `user:<actor>` |
-| `project.updated` | `PATCH /projects/:id`, archive, restore | `project:<id>` |
-| `project.deleted` | `DELETE /projects/:id` | `project:<id>` |
-| `member.added` | `POST …/members` | `project:<id>` |
-| `member.updated` | `PATCH …/members/:userId`, transfer-ownership | `project:<id>` |
-| `member.removed` | `DELETE …/members/:userId` | `project:<id>` |
-| `task.created` | `POST …/tasks` | `project:<id>` |
-| `task.updated` | `PATCH …/tasks/:id` | `project:<id>` |
-| `task.moved` | `PATCH …/tasks/:id/move` | `project:<id>` |
-| `task.deleted` | `DELETE …/tasks/:id` | `project:<id>` |
-| `comment.added` / `comment.updated` / `comment.deleted` | comment routes | `project:<id>` |
-| `label.created` | `POST …/labels` | `project:<id>` |
-| `notification.created` | a notification was created for a user (task assigned, added to project) | `user:<userId>` – include `message` |
-
-The frontend reacts by refetching the affected queries and showing a toast for events caused by other people, so payloads can stay small.
+This API is REST only. Live updates over WebSockets are out of scope for this version, so clients should refetch to see other people's changes.
 
 ---
 
@@ -743,5 +702,4 @@ The mock data (`src/mocks/data/users.json`) has demo users; the dev refresh cook
 ```bash
 # .env.local
 NEXT_PUBLIC_API_URL=http://localhost:4040/api/v1
-NEXT_PUBLIC_SOCKET_URL=http://localhost:4001   # or empty to turn live updates off
 ```

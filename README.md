@@ -1,7 +1,7 @@
 # TaskForge API
 
 NestJS 12 + Prisma 7 + PostgreSQL backend implementing every endpoint in [`BACKEND_API.md`](./BACKEND_API.md)
-(42 REST endpoints + Socket.IO live updates). Design background: [`BACKEND_PLAN.md`](./BACKEND_PLAN.md).
+(42 REST endpoints). Design background: [`BACKEND_PLAN.md`](./BACKEND_PLAN.md).
 
 ## Quick start
 
@@ -14,10 +14,9 @@ npm run start:dev                      # http://localhost:4040/api/v1
 ```
 
 - Swagger UI: `http://localhost:4040/api/docs` (OpenAPI JSON at `/api/docs-json`, importable into Postman)
-- Socket.IO: same port as the API (`http://localhost:4040`), auth via `auth: { token: <accessToken> }`
 - Seed logins (password `Demo1234!`): `owner@demo.dev`, `admin@demo.dev`, `member@demo.dev`, `diego@demo.dev`, `sara@demo.dev`, `liam@demo.dev`
 
-Frontend `.env.local`: `NEXT_PUBLIC_API_URL=http://localhost:4040/api/v1`, `NEXT_PUBLIC_SOCKET_URL=http://localhost:4040`.
+Frontend `.env.local`: `NEXT_PUBLIC_API_URL=http://localhost:4040/api/v1`.
 
 ## Environment
 
@@ -29,7 +28,7 @@ All variables are validated at boot by `src/core/env.validation.ts`; see `.env.e
 | `JWT_ACCESS_SECRET` | access-token signing secret, at least 32 characters |
 | `FRONTEND_ORIGIN` | comma-separated allowed frontend origins (credentials enabled); required in production |
 | `COOKIE_SAMESITE` / `COOKIE_SECURE` / `COOKIE_DOMAIN` | refresh-cookie flags (`none` needed for a frontend on another domain) |
-| `PORT` | HTTP + Socket.IO port (4000) |
+| `PORT` | HTTP port (4040) |
 
 ## Scripts
 
@@ -54,7 +53,7 @@ Same layout and conventions as `master-server`; feature folders under `src/` (co
 
 ## Trade-offs and deferred work
 
-- **Realtime is called directly from services** (`RealtimeService`), not through a domain-event bus. It is less decoupled but far easier to follow at this size; an event emitter is the next step if listeners multiply.
+- **No real-time updates.** The API is REST only; live updates (e.g. WebSockets) are not implemented.
 - **No Redis / caching.** Dashboard queries are a handful of indexed `count`/`groupBy` calls, so caching would add moving parts without measured need. Rate limiting is therefore in-memory.
 - **Hard delete + cascade** (as the API contract specifies) instead of soft delete.
 - **Account deletion anonymises** the user, so tasks and comments keep a valid author reference.
@@ -70,5 +69,5 @@ Same layout and conventions as `master-server`; feature folders under `src/` (co
 
 - **Database:** use a hosted PostgreSQL: Neon or Supabase (free tiers, no expiry) or Render Postgres (free tier expires after 30 days). Put its connection string in `DATABASE_URL` (add `?sslmode=require` if the host needs it).
 - **API on Render (Web Service):** build `npm install && npm run build`, start `npm run db:migrate && npm run start:prod`.
-- **Env vars:** `DATABASE_URL`, `JWT_ACCESS_SECRET` (long random), `NODE_ENV=production`, `FRONTEND_ORIGIN` (your frontend URL). Socket.IO shares the API port, so set `NEXT_PUBLIC_SOCKET_URL` to the API's base URL (without `/api/v1`).
+- **Env vars:** `DATABASE_URL`, `JWT_ACCESS_SECRET` (long random), `NODE_ENV=production`, `FRONTEND_ORIGIN` (your frontend URL).
 - Cross-site cookies: if frontend and API are on different domains, set `COOKIE_SAMESITE=none` (Secure is then required and is on by default in production).

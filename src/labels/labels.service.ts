@@ -5,17 +5,13 @@ import { isUniqueViolation } from '../common/utils/prisma-errors.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { ProjectAccessInfo } from '../projects/project-access.js';
 import { can } from '../projects/project-permissions.js';
-import { RealtimeService } from '../realtime/realtime.service.js';
 import type { CreateLabelDto } from './dto/label-request.dto.js';
 import type { LabelResponse } from './dto/label-response.dto.js';
 
 /** Reads and creates project labels. */
 @Injectable()
 export class LabelsService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly realtime: RealtimeService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /** Lists a project's labels by name. */
   findAll(projectId: string): Promise<LabelResponse[]> {
@@ -50,7 +46,6 @@ export class LabelsService {
           color: dto.color ?? '#6366f1',
         },
       });
-      this.realtime.toProject('label.created', access.projectId, actorId);
       return label;
     } catch (err) {
       // A concurrent request can still win the race; the unique index is the final guard.

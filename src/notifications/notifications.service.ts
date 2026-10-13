@@ -3,16 +3,12 @@ import { paginated, type Paginated } from '../common/dto/api-response.dto.js';
 import { clampPage, type PageQueryDto } from '../common/dto/pagination.dto.js';
 import { newId } from '../common/utils/ids.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { RealtimeService } from '../realtime/realtime.service.js';
 import type { NotificationResponse } from './dto/notification-response.dto.js';
 
 /** Creates and reads the signed-in user's notifications. */
 @Injectable()
 export class NotificationsService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly realtime: RealtimeService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /** Stores a notification and pushes it live to the recipient. */
   async notify(
@@ -25,7 +21,6 @@ export class NotificationsService {
     await this.prisma.notification.create({
       data: { id: newId('ntf'), userId, type, message, link },
     });
-    this.realtime.toUser('notification.created', userId, actorId, { message });
   }
 
   /** Lists my notifications, newest first; `meta.unread` counts all unread, not just this page. */
