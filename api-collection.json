@@ -2,7 +2,7 @@
   "info": {
     "name": "TaskForge API",
     "_postman_id": "taskforge-api-2026-10-11",
-    "description": "Project & task management backend (NestJS + Prisma + PostgreSQL). Base URL: http://localhost:4000. All `/api/v1/*` routes except `/health` require `Authorization: Bearer <accessToken>` (obtained from `/auth/login` or `/auth/register`). The refresh token is set as an httpOnly cookie called `tf_refresh` and is sent automatically by browsers.",
+    "description": "Project & task management backend (NestJS + Prisma + PostgreSQL). Base URL: http://localhost:4040. All `/api/v1/*` routes except `/health` require `Authorization: Bearer <accessToken>` (obtained from `/auth/login` or `/auth/register`). The refresh token is set as an httpOnly cookie called `tf_refresh` and is sent automatically by browsers.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "version": {
       "major": 1,
@@ -17,7 +17,7 @@
     ]
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:4000", "type": "string" },
+    { "key": "baseUrl", "value": "http://localhost:4040", "type": "string" },
     { "key": "accessToken", "value": "", "type": "string" },
     { "key": "refreshToken", "value": "", "type": "string" },
     { "key": "userId", "value": "usr_owner", "type": "string" },

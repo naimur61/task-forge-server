@@ -1,88 +1,59 @@
-# TaskForge — PostgreSQL backend seed
+# Database (Prisma + PostgreSQL)
 
-PostgreSQL schema and seed data for the TaskForge backend. The values are
-**the exact same demo data** as the Next.js demo API uses (so the frontend
-and backend show the same thing), but expressed as Postgres tables with
-snake_case column names.
+| Path | What it is |
+| --- | --- |
+| `schemas/*.prisma` | Prisma models, one file per area (`auth`, `projects`, `tasks`, `notifications`) plus `schema.prisma` (generator + datasource). |
+| `migrations/` | SQL migrations applied with `npm run db:migrate`. This is the source of truth for the database structure. |
+| `seed.ts` | Demo data, run with `npm run db:seed`. |
 
-## Files
+The Prisma config is in `../prisma.config.ts`; the client is generated into `../generated/prisma` (git-ignored, created by `npm install`).
 
-| File | What it is |
-|---|---|
-| `schema.sql` | Tables, enums, foreign keys, indexes. Idempotent (safe to re-run). |
-| `seed.sql`   | INSERT statements for every demo row. Also idempotent (TRUNCATEs first). |
-
-Both files use `TIMESTAMPTZ` for every date column and PostgreSQL `ENUM`
-types for `project.status`, `members.role`, `tasks.status`, `tasks.priority`.
-
-## Loading it
+## Create the database and apply migrations
 
 ```bash
-createdb taskforge
-psql -d taskforge -f db/postgres/schema.sql
-psql -d taskforge -f db/postgres/seed.sql
+createdb task-forge                    # or create it in pgAdmin / your hosting dashboard
+# .env: DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/task-forge
+npm run db:migrate                     # prisma migrate deploy: applies every migration in order
 ```
 
-Want to wipe and re-seed? Just re-run `seed.sql` — it `TRUNCATE`s
-everything inside a transaction.
+## Load the demo data
 
 ```bash
-psql -d taskforge -f db/postgres/seed.sql      # safe, repeatable
+npm run db:seed
 ```
 
-## Demo accounts
+The seed can be re-run, but it **first deletes all existing users, projects, tasks, comments, labels, activity and notifications**, then re-inserts the demo rows. Run it only on a development or demo database, never on one holding real data.
 
-All passwords are `Demo1234!` (plain text in the seed — hash them in your
-backend before exposing the API).
+| Table | Rows |
+| --- | ---: |
+| `users` | 6 |
+| `projects` | 4 (3 active, 1 archived) |
+| `project_members` | 14 |
+| `labels` | 20 |
+| `tasks` | 43 |
+| `task_labels` | 26 |
+| `comments` | 35 |
+| `activity` | 66 |
+| `notifications` | 5 |
 
-| Email                | Name              | Role in "Website Redesign" |
-|----------------------|-------------------|----------------------------|
-| owner@demo.dev       | Ava Chen          | OWNER                      |
-| admin@demo.dev       | Marcus Reed       | ADMIN                      |
-| member@demo.dev      | Priya Natarajan   | MEMBER                     |
-| diego@demo.dev       | Diego Alvarez     | MEMBER (Website Redesign)  |
-| sara@demo.dev        | Sara Okafor       | MEMBER (Website Redesign)  |
-| liam@demo.dev        | Liam Novak        | MEMBER (Mobile App v2)     |
+### Demo accounts
 
-## Data shape
+Every account has the password `Demo1234!`.
 
-| Table | Rows | Notes |
-|---|---:|---|
-| `users`         |   6 | |
-| `projects`      |   4 | 3 ACTIVE, 1 ARCHIVED |
-| `members`       |  14 | one row per (project, user) |
-| `labels`        |  20 | 5 per project (Bug, Feature, Design, Docs, Chore) |
-| `tasks`         |  43 | IDs `tsk_0035`…`tsk_0077` |
-| `task_labels`   |  26 | join table for the array of labels on each task |
-| `comments`      |  35 | |
-| `activity`      |  66 | `task.created` + `task.completed` + `member.added` |
-| `notifications` |   5 | |
+| Email | Name | Role in "Website Redesign" |
+| --- | --- | --- |
+| owner@demo.dev | Ava Chen | OWNER |
+| admin@demo.dev | Marcus Reed | ADMIN |
+| member@demo.dev | Priya Natarajan | MEMBER |
+| diego@demo.dev | Diego Alvarez | MEMBER |
+| sara@demo.dev | Sara Okafor | MEMBER |
+| liam@demo.dev | Liam Novak | MEMBER (Mobile App v2) |
 
-## Regenerating `seed.sql`
-
-If the demo data in `src/mocks/data/*.json` changes, regenerate the SQL:
+## Changing the schema
 
 ```bash
-npm run seed:sql
+# 1. edit prisma/schemas/*.prisma
+npx prisma migrate dev --name describe_change   # creates + applies a migration, regenerates the client
 ```
 
-`scripts/build-seed-sql.mjs` reads the JSON files and writes a fresh
-`seed.sql`. Same source, no drift.
-
-## Foreign keys at a glance
-
-```
-users                          ─┐
-                                ├─ projects.owner_id
-                                ├─ members.user_id, project_id → projects
-                                ├─ tasks.assignee_id, creator_id
-                                ├─ comments.author_id
-                                ├─ activity.actor_id
-                                └─ notifications.user_id
-
-projects                       ─┬─ members, labels, tasks, activity (all ON DELETE CASCADE)
-                                 └─ tasks → members.user_id (assignee/creator)
-
-tasks                          ─┬─ comments (ON DELETE CASCADE)
-                                 └─ task_labels (ON DELETE CASCADE) → labels
-```
+Commit the new folder under `prisma/migrations/`.
